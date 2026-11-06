@@ -860,7 +860,7 @@ async function renderBackups(){
 
 /* ================= IA : Gemini ================= */
 async function saveAiCfg(){ if(Store.mode==="idb") await IDB.put("kv",{key:aiCfg.key,model:aiCfg.model},"gemini"); }
-function aiError(code,message){ const e=new Error(message||code); e.code=code; return e; }
+function aiError(code,message,status){ const e=new Error(message||code); e.code=code; e.detail=message||""; e.status=status||0; return e; }
 async function gemini(prompt,{signal,onText}={}){
   const key=(aiCfg.key||"").trim(), model=(aiCfg.model||"gemini-flash-latest").trim().replace(/^models\//,"");
   if(!key) throw aiError("no_key");
@@ -870,15 +870,17 @@ async function gemini(prompt,{signal,onText}={}){
       method:"POST", signal, headers:{"content-type":"application/json","x-goog-api-key":key},
       body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:{temperature:.9}})
     });
-  }catch(e){ if(e&&e.name==="AbortError") throw aiError("cancelled"); throw aiError("network"); }
+  }catch(e){ if(e&&e.name==="AbortError") throw aiError("cancelled"); throw aiError("network",String(e&&e.message||"")); }
   if(!res.ok){
     let j={}; try{ j=await res.json(); }catch(e){}
-    const st=(j.error&&j.error.status)||"", m=(j.error&&j.error.message)||"";
-    if(res.status===400&&/api key/i.test(m)) throw aiError("bad_key",m);
-    if(res.status===401||res.status===403) throw aiError("denied",m);
-    if(res.status===404) throw aiError("no_model",m);
-    if(res.status===429||st==="RESOURCE_EXHAUSTED") throw aiError("quota",m);
-    throw aiError("upstream",m||("HTTP "+res.status));
+    const st=(j.error&&j.error.status)||"", m=(j.error&&j.error.message)||"", code=res.status, full=(st?st+" · ":"")+(m||("HTTP "+code));
+    if(code===400&&/api key|api_key/i.test(m)) throw aiError("bad_key",full,code);
+    if(/location|region|country|pays/i.test(m)) throw aiError("region",full,code);
+    if(code===401||code===403) throw aiError("denied",full,code);
+    if(code===404||/not found|is not supported for generateContent/i.test(m)) throw aiError("no_model",full,code);
+    if(code===429||st==="RESOURCE_EXHAUSTED") throw aiError("quota",full,code);
+    if(code>=500) throw aiError("busy",full,code);
+    throw aiError("upstream",full,code);
   }
   const reader=res.body.getReader(), dec=new TextDecoder(); let buf="", text="", blocked=null;
   try{
@@ -889,27 +891,34 @@ async function gemini(prompt,{signal,onText}={}){
         const line=buf.slice(0,i).trim(); buf=buf.slice(i+1);
         if(!line.startsWith("data:")) continue;
         let j; try{ j=JSON.parse(line.slice(5)); }catch(e){ continue; }
+        if(j.error){ throw aiError("upstream",(j.error.status?j.error.status+" · ":"")+(j.error.message||""),j.error.code); }
         if(j.promptFeedback&&j.promptFeedback.blockReason) blocked=j.promptFeedback.blockReason;
         const parts=(j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[];
         for(const p of parts) if(typeof p.text==="string"&&!p.thought) text+=p.text;
         if(onText&&text) onText(text);
       }
     }
-  }catch(e){ if(e&&e.name==="AbortError"){ const er=aiError("cancelled"); er.text=text; throw er; } throw aiError("network"); }
+  }catch(e){ if(e&&e.code) throw e; if(e&&e.name==="AbortError"){ const er=aiError("cancelled"); er.text=text; throw er; } throw aiError("network"); }
   if(!text.trim()) throw aiError(blocked?"refused":"empty");
   return text;
 }
-function aiMsg(e){
+function aiMsg(e,detailed){
+  const base=aiMsgBase(e);
+  return detailed&&e&&e.detail ? `${base} Réponse de Google${e.status?" ("+e.status+")":""} : ${String(e.detail).slice(0,220)}` : base;
+}
+function aiMsgBase(e){
   switch(e&&e.code){
     case "no_key": return "Ajoute d'abord ta clé Gemini dans Réglages (touche R).";
     case "bad_key": return "Google refuse cette clé. Vérifie-la dans Réglages.";
     case "denied": return "Cette clé n'a pas accès à Gemini. Vérifie ses restrictions dans Google AI Studio.";
-    case "no_model": return "Ce modèle Gemini n'existe pas ou plus. Choisis-en un autre dans Réglages.";
+    case "no_model": return "Ce modèle Gemini n'est pas disponible pour ta clé. Clique « Charger la liste de ma clé » et choisis-en un autre.";
+    case "region": return "Google refuse la demande à cause du lieu ou du type de compte.";
+    case "busy": return "Gemini est surchargé ou en panne pour le moment. Réessaie dans quelques minutes.";
     case "quota": return "Limite d'utilisation de Gemini atteinte. Réessaie plus tard, ou vérifie ton forfait Google.";
     case "network": return "Impossible de joindre Gemini. Vérifie ta connexion Internet.";
     case "refused": return "Gemini n'a pas voulu rédiger ce texte. Reformule les notes.";
     case "empty": return "Gemini n'a rien répondu. Réessaie.";
-    default: return "La rédaction a échoué. Réessaie, ou écris-la toi-même.";
+    default: return "Gemini a refusé la demande.";
   }
 }
 
@@ -1486,7 +1495,7 @@ $("#qf-ai").onclick=async ()=>{
   }catch(e){
     const c=e&&e.code;
     if(c==="cancelled"){ ta.value=e.text||before; msg.textContent="Rédaction arrêtée."; }
-    else { ta.value=before; msg.textContent=aiMsg(e); }
+    else { ta.value=before; msg.textContent=aiMsg(e,true); }
   }finally{ btn.disabled=false; stop.hidden=true; aiCtl=null; }
 };
 $("#qf-stop").onclick=()=>aiCtl&&aiCtl.abort();
@@ -1582,7 +1591,7 @@ $("#ai-save").onclick=async ()=>{ await storeAi(); $("#ai-msg").textContent=aiCf
 $("#ai-test").onclick=async ()=>{
   await storeAi(); const m=$("#ai-msg"); m.className="msg"; m.textContent="Test en cours…";
   try{ const t=await gemini("Réponds uniquement par le mot : OK"); m.textContent=`La clé fonctionne avec le modèle « ${aiCfg.model} ».`; SFX.save(); }
-  catch(e){ m.className="msg err"; m.textContent=aiMsg(e); }
+  catch(e){ m.className="msg err"; m.textContent=aiMsg(e,true); }
 };
 $("#ai-list").onclick=async ()=>{
   await storeAi(); const m=$("#ai-msg"); m.className="msg";
@@ -1590,12 +1599,13 @@ $("#ai-list").onclick=async ()=>{
   m.textContent="Lecture de la liste…";
   try{
     const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",{headers:{"x-goog-api-key":aiCfg.key}});
-    if(!r.ok) throw aiError(r.status===400?"bad_key":(r.status===401||r.status===403)?"denied":"upstream");
+    if(!r.ok){ let j={}; try{ j=await r.json(); }catch(x){} const em=(j.error&&((j.error.status?j.error.status+" · ":"")+(j.error.message||"")))||("HTTP "+r.status);
+      throw aiError(r.status===400&&/api key|api_key/i.test(em)?"bad_key":(r.status===401||r.status===403)?"denied":"upstream",em,r.status); }
     const j=await r.json(), list=(j.models||[]).filter(x=>(x.supportedGenerationMethods||[]).includes("generateContent")&&/gemini/i.test(x.name||""));
     const dl=$("#ai-models"); dl.innerHTML="";
     list.forEach(x=>{ const o=document.createElement("option"); o.value=String(x.name).replace(/^models\//,""); o.label=x.displayName||o.value; dl.appendChild(o); });
     m.textContent=`${list.length} modèles disponibles : clique dans le champ « Modèle » pour choisir.`;
-  }catch(e){ m.className="msg err"; m.textContent=e.code?aiMsg(e):aiMsg({code:"network"}); }
+  }catch(e){ m.className="msg err"; m.textContent=e.code?aiMsg(e,true):aiMsg({code:"network"}); }
 };
 /* Sauvegardes */
 $("#exp-btn").onclick=exportFile;
