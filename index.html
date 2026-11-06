@@ -1,0 +1,1679 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Journal d'aventure</title>
+<meta name="description" content="Planificateur de tâches façon journal de quêtes d'aventure.">
+<meta name="theme-color" content="#070a10">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="fonts/fonts.css">
+<style>
+:root{padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
+body{margin:0;font-size:14px}
+img{max-width:100%}
+[hidden]{display:none!important}
+/* Layout : cadre ornemental plein écran ; en-tête (cœurs-horloge · titre + Réglages · capital) ; liste à gauche, fiche à droite ; barre de commandes en bas ; fond d'écran animé ou importé derrière un voile réglable. */
+:root{
+  --bg:#070a10;
+  --ink:#f3f1e8;
+  --muted:#a9ab9e;
+  --dim:#75786d;
+  --place:#cfe05c;
+  --place-alt:#5ec6ee;
+  --key:#ff4b3e;
+  --gold:#d9c27c;
+  --gold-hi:#f6e6ad;
+  --line:rgba(232,220,180,.24);
+  --line-soft:rgba(232,220,180,.1);
+  --panel:rgba(4,6,9,.74);
+  --row-a:rgba(2,3,5,.78);
+  --row-b:rgba(14,16,20,.5);
+  --heart:#ff3a4c;
+  --frame:#fffbe6;
+  --blur:6px;
+  --dimv:.35;
+  --f-ui:"Noto Sans","Segoe UI",system-ui,sans-serif;
+  --f-stamp:"Marcellus SC","Trajan Pro",Georgia,serif;
+  color-scheme:dark;
+}
+html,body{height:100%}
+body{background:var(--bg);color:var(--ink);font-family:var(--f-ui);font-style:italic;overflow-x:hidden}
+button{font-family:inherit}
+
+/* Fond d'écran */
+#wall{position:fixed;inset:-40px;z-index:0;filter:blur(var(--blur));transform:scale(1.02)}
+#wall > *{width:100%;height:100%;object-fit:cover;display:block}
+.veil{position:fixed;inset:0;z-index:1;pointer-events:none;background:
+  radial-gradient(ellipse at 50% 45%,rgba(0,0,0,calc(var(--dimv)*.6)),rgba(0,0,0,calc(var(--dimv) + .25)) 75%,rgba(0,0,0,calc(var(--dimv) + .45)))}
+.grain{position:fixed;inset:0;z-index:1;pointer-events:none;opacity:.07;mix-blend-mode:overlay;
+  background-image:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='180' height='180'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='2' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 1 0 0 0 0 1 0 0 0 0 1 0 0 0 .6 0'/></filter><rect width='100%' height='100%' filter='url(%23n)'/></svg>")}
+
+/* Cadre ornemental de l'écran */
+.screen-frame{position:fixed;inset:8px;z-index:3;pointer-events:none;color:var(--gold)}
+.screen-frame .c{position:absolute;width:64px;height:64px;opacity:.55}
+.screen-frame .c svg{width:100%;height:100%;display:block}
+.screen-frame .tl{left:0;top:0}
+.screen-frame .tr{right:0;top:0;transform:scaleX(-1)}
+.screen-frame .bl{left:0;bottom:0;transform:scaleY(-1)}
+.screen-frame .br{right:0;bottom:0;transform:scale(-1,-1)}
+.screen-frame .e{position:absolute;opacity:.4}
+.screen-frame .et,.screen-frame .eb{left:64px;right:64px;height:1px;background:linear-gradient(90deg,var(--gold),transparent 22%,transparent 78%,var(--gold))}
+.screen-frame .et{top:0}.screen-frame .eb{bottom:0}
+.screen-frame .el,.screen-frame .er{top:64px;bottom:64px;width:1px;background:linear-gradient(180deg,var(--gold),transparent 25%,transparent 75%,var(--gold))}
+.screen-frame .el{left:0}.screen-frame .er{right:0}
+
+.app{position:relative;z-index:2;max-width:1160px;margin:0 auto;padding-block:30px 24px;padding-left:max(28px,env(safe-area-inset-left,0px));padding-right:max(28px,env(safe-area-inset-right,0px));display:flex;flex-direction:column;gap:14px;min-height:100%;transition:filter .5s,transform .5s}
+.app.fx-on{filter:blur(3px) brightness(.6);transform:scale(.985)}
+.app.shake{animation:shake .32s linear}
+@keyframes shake{20%{translate:3px -2px}40%{translate:-3px 2px}60%{translate:2px 1px}80%{translate:-1px -1px}}
+
+/* En-tête */
+header{display:grid;grid-template-columns:1fr auto 1fr;align-items:start;gap:16px}
+.hud-left{display:flex;flex-direction:column;gap:6px;min-width:0}
+.hearts{display:flex;flex-wrap:wrap;gap:1px 2px;max-width:calc(10 * 24px)}
+.hearts svg{width:22px;height:20px;display:block;filter:drop-shadow(0 1px 1px rgba(0,0,0,.8))}
+.hearts .blink{animation:blink .9s steps(2,jump-none) infinite}
+@keyframes blink{0%{filter:brightness(1)}100%{filter:drop-shadow(0 0 6px #ff8a8a) brightness(1.9)}}
+.clock{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;text-shadow:0 1px 2px #000}
+.tracked{display:flex;align-items:center;gap:8px;max-width:280px;background:linear-gradient(90deg,rgba(0,0,0,.6),transparent);border-left:2px solid #f2cf3c;padding:4px 10px 4px 8px;cursor:pointer;border-top:0;border-right:0;border-bottom:0;color:var(--ink);text-align:left;font-style:italic}
+.tracked svg{width:16px;height:16px;flex:none}
+.tracked .tl{font-size:10px;color:#f2cf3c;font-weight:700;letter-spacing:.04em;display:block}
+.tracked .tn{font-size:12.5px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tracked span{min-width:0}
+.title-block{display:flex;flex-direction:column;align-items:center;gap:6px}
+.title-row{display:flex;align-items:flex-end;gap:16px}
+h1{margin:0;font-size:clamp(20px,2.4vw,26px);font-weight:800;letter-spacing:.01em;text-shadow:0 2px 6px rgba(0,0,0,.9);text-align:center;text-wrap:balance}
+.subtab{background:none;border:0;color:var(--muted);font-size:11px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px;cursor:pointer;padding:2px 4px;font-style:italic}
+.subtab svg{width:18px;height:18px}
+.subtab .kk{font-size:9px;border:1px solid currentColor;border-radius:3px;padding:0 4px;font-style:normal}
+.subtab:hover,.subtab:focus-visible{color:var(--ink);outline:none}
+.rule{display:flex;align-items:center;gap:8px;width:min(420px,70vw)}
+.rule span{flex:1;height:1px;background:linear-gradient(90deg,transparent,var(--line))}
+.rule span:last-child{background:linear-gradient(90deg,var(--line),transparent)}
+.rule i{width:6px;height:6px;transform:rotate(45deg);border:1px solid var(--gold);opacity:.8}
+.capital{justify-self:end;display:flex;align-items:center;gap:7px;background:none;border:0;color:var(--ink);font-weight:700;font-size:19px;cursor:pointer;padding:4px 8px;border-radius:3px;font-variant-numeric:tabular-nums;text-shadow:0 2px 4px rgba(0,0,0,.9);font-style:italic}
+.capital:hover,.capital:focus-visible{background:rgba(255,255,255,.07);outline:none}
+.capital svg{width:14px;height:22px;filter:drop-shadow(0 0 5px rgba(95,220,78,.55))}
+.capital input{width:8.5em;background:rgba(0,0,0,.7);border:1px solid var(--frame);color:var(--ink);font:inherit;padding:2px 6px;text-align:right}
+
+/* Corps */
+main{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:30px;align-items:start;flex:1}
+.col-left{display:flex;flex-direction:column;gap:8px;min-width:0}
+.cat-label{text-align:center;font-size:12.5px;font-weight:700;letter-spacing:.02em;text-shadow:0 1px 3px #000;min-height:1.3em}
+.tabs-row{display:flex;align-items:center;justify-content:center;gap:10px}
+.tabs-row .kk{font-size:10px;color:var(--muted);border:1px solid rgba(255,255,255,.25);border-radius:9px;width:20px;height:18px;display:grid;place-items:center;font-style:normal}
+.tabs{display:flex;justify-content:center;gap:12px;position:relative;padding:2px 8px 12px}
+.tab{background:none;border:0;padding:4px;cursor:pointer;opacity:.35;transition:opacity .18s,transform .18s;color:var(--ink)}
+.tab svg{width:32px;height:26px;display:block;filter:drop-shadow(0 1px 2px #000)}
+.tab[aria-selected="true"]{opacity:1;transform:scale(1.14)}
+.tab[aria-selected="true"] svg{filter:drop-shadow(0 0 6px rgba(255,250,225,.5))}
+.tab:hover{opacity:.75}
+.tab:focus-visible{outline:1px solid var(--frame);outline-offset:2px}
+.tab-mark{position:absolute;bottom:0;width:18px;height:10px;transition:left .22s cubic-bezier(.3,.7,.2,1)}
+.list-box{position:relative}
+.list-wrap{position:relative;max-height:min(58vh,500px);overflow-y:auto;padding:4px 22px 8px 4px;scrollbar-width:none}
+.list-wrap::-webkit-scrollbar{display:none}
+.list{display:flex;flex-direction:column;gap:6px;list-style:none;margin:0;padding:0}
+.row{display:flex;align-items:center;gap:10px;background:linear-gradient(90deg,var(--row-a),var(--row-b));border:1px solid rgba(255,255,255,.07);box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 2px 8px rgba(0,0,0,.35);padding:6px 12px 6px 6px;min-height:48px;cursor:pointer;position:relative;animation:rowIn .28s ease-out both}
+.row::after{content:"";position:absolute;right:6px;top:50%;width:5px;height:5px;border-right:1px solid var(--line);border-top:1px solid var(--line);transform:translateY(-50%) rotate(45deg)}
+.row .plate{width:34px;height:34px;flex:none;display:grid;place-items:center;background:radial-gradient(circle,rgba(255,255,255,.1),transparent 68%)}
+.row .plate svg{width:24px;height:21px}
+.row .t{min-width:0;flex:1}
+.row .name{font-weight:700;font-size:15px;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-shadow:0 1px 2px #000}
+.row .sub{font-size:11px;color:var(--place);line-height:1.25;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.row .sub .ex{color:var(--muted);border:1px solid rgba(255,255,255,.2);border-radius:2px;padding:0 4px;margin-left:6px;font-size:9.5px;font-style:normal}
+.row.done{opacity:.4}
+.row.done .name{font-weight:500}
+.row .track{width:18px;height:18px;flex:none;margin-right:8px}
+@keyframes rowIn{from{opacity:0;transform:translateX(-10px)}}
+.row.done{animation-name:rowInDim}
+@keyframes rowInDim{from{opacity:0;transform:translateX(-10px)}to{opacity:.4}}
+.sel-frame{position:absolute;left:4px;right:22px;pointer-events:none;border:2px solid var(--frame);box-shadow:0 0 10px rgba(255,248,210,.75),inset 0 0 10px rgba(255,248,210,.22);transition:top .12s cubic-bezier(.3,.7,.2,1),height .12s;animation:glow 1.8s ease-in-out infinite}
+.sel-frame i{position:absolute;width:10px;height:10px;border-color:#fff;border-style:solid;filter:drop-shadow(0 0 4px #fff)}
+.sel-frame .a{left:-6px;top:-6px;border-width:2px 0 0 2px}
+.sel-frame .b{right:-6px;top:-6px;border-width:2px 2px 0 0}
+.sel-frame .c{left:-6px;bottom:-6px;border-width:0 0 2px 2px}
+.sel-frame .d{right:-6px;bottom:-6px;border-width:0 2px 2px 0}
+.sel-frame .glint{position:absolute;inset:0;overflow:hidden}
+.sel-frame .glint::before{content:"";position:absolute;top:0;bottom:0;width:40%;left:-45%;background:linear-gradient(100deg,transparent,rgba(255,250,225,.16),transparent);animation:glint 2.8s ease-in-out infinite}
+@keyframes glint{60%,100%{left:110%}}
+@keyframes glow{50%{box-shadow:0 0 18px rgba(255,248,210,.95),inset 0 0 14px rgba(255,248,210,.32)}}
+.scroll{position:absolute;right:6px;top:8px;bottom:12px;width:8px;pointer-events:none}
+.scroll::before{content:"";position:absolute;left:50%;top:6px;bottom:6px;width:1px;background:var(--line)}
+.scroll .cap{position:absolute;left:1px;width:6px;height:6px;border:1px solid var(--gold);transform:rotate(45deg);opacity:.7}
+.scroll .cap.t{top:0}.scroll .cap.b{bottom:0}
+.scroll .thumb{position:absolute;left:1px;width:6px;background:var(--ink);box-shadow:0 0 6px rgba(255,255,255,.5);border-radius:1px}
+.empty{padding:18px 14px;color:var(--muted);font-size:13.5px;line-height:1.5;background:linear-gradient(90deg,var(--row-a),transparent);border-left:2px solid var(--line)}
+.new-quest{display:flex;align-items:center;justify-content:center;gap:8px;background:linear-gradient(90deg,rgba(0,0,0,.5),rgba(0,0,0,.25));border:1px dashed rgba(232,220,180,.3);color:var(--muted);font-weight:700;padding:10px;cursor:pointer;margin-right:22px;font-style:italic;font-size:13.5px}
+.new-quest .k{font-style:normal;font-size:10px;border:1px solid currentColor;border-radius:3px;padding:0 4px}
+.new-quest:hover,.new-quest:focus-visible{color:var(--ink);border-color:var(--frame);outline:none}
+
+/* Fiche */
+.col-right{display:flex;flex-direction:column;gap:10px;min-width:0}
+.panel{position:relative;background:var(--panel);border:1px solid var(--line);min-height:460px;padding:24px 30px 18px;display:flex;flex-direction:column;overflow:hidden;box-shadow:0 14px 50px rgba(0,0,0,.55),inset 0 0 60px rgba(0,0,0,.4)}
+.panel::before{content:"";position:absolute;inset:5px;border:1px solid var(--line-soft);pointer-events:none}
+.panel .pc{position:absolute;width:22px;height:22px;color:var(--gold);opacity:.7;pointer-events:none}
+.panel .pc svg{width:100%;height:100%;display:block}
+.panel .p1{left:2px;top:2px}.panel .p2{right:2px;top:2px;transform:scaleX(-1)}.panel .p3{left:2px;bottom:2px;transform:scaleY(-1)}.panel .p4{right:2px;bottom:2px;transform:scale(-1,-1)}
+.panel .wm{position:absolute;right:-50px;bottom:-40px;width:340px;height:300px;opacity:.05;color:#fff;pointer-events:none}
+.panel .wm svg{width:100%;height:100%}
+.panel .rings{position:absolute;left:-120px;top:-120px;width:360px;height:360px;opacity:.06;pointer-events:none}
+.panel-in{position:relative;display:flex;flex-direction:column;flex:1;min-width:0;animation:panelIn .22s ease-out}
+@keyframes panelIn{from{opacity:.0;transform:translateX(6px)}}
+.panel h2{margin:0 0 8px;font-size:21px;font-weight:800;text-shadow:0 1px 3px #000;text-wrap:balance}
+.meta{display:flex;justify-content:space-between;align-items:center;gap:12px;font-size:12.5px;padding-bottom:10px;margin-bottom:16px;flex-wrap:wrap;border-bottom:1px solid;border-image:linear-gradient(90deg,var(--line),transparent) 1}
+.giver{display:flex;align-items:center;gap:6px}
+.giver svg{width:13px;height:13px}
+.place{color:var(--place);font-weight:700;display:flex;align-items:center;gap:5px}
+.place svg{width:10px;height:13px}
+.place.alt{color:var(--place-alt)}
+.desc{font-size:14.5px;line-height:1.6;max-width:60ch;min-height:7em;text-shadow:0 1px 2px rgba(0,0,0,.7)}
+.desc p{margin:0 0 .9em}
+.desc .k{color:var(--key)}
+.desc .caret{display:inline-block;width:.45em;height:1em;background:var(--ink);opacity:.6;vertical-align:-2px;margin-left:1px;animation:caret .6s steps(2,jump-none) infinite}
+@keyframes caret{to{opacity:0}}
+.memimg{width:100%;max-width:380px;aspect-ratio:4/3;margin:0 auto 14px;display:block;object-fit:cover;border:2px solid rgba(217,194,124,.55);box-shadow:0 0 0 4px rgba(0,0,0,.55),0 0 0 5px var(--line)}
+.panel-foot{margin-top:auto;display:flex;flex-direction:column;align-items:center;gap:6px;padding-top:12px}
+.stamp-wrap{display:flex;align-items:center;gap:14px;position:relative}
+.stamp-wrap::before,.stamp-wrap::after{content:"";width:60px;height:1px;background:linear-gradient(90deg,transparent,var(--gold))}
+.stamp-wrap::after{background:linear-gradient(90deg,var(--gold),transparent)}
+.stamp{font-family:var(--f-stamp);font-style:normal;font-size:44px;letter-spacing:.08em;color:var(--gold);text-shadow:0 0 14px rgba(217,194,124,.45),0 2px 2px rgba(0,0,0,.8)}
+.stamp-wrap.fresh .stamp{animation:stampIn .45s cubic-bezier(.2,1.4,.4,1) both}
+.stamp-wrap.fresh::before,.stamp-wrap.fresh::after{animation:lineIn .5s .25s ease-out both}
+.stamp-wrap .dust{position:absolute;left:50%;top:50%;width:10px;height:10px;margin:-5px;border-radius:50%;border:2px solid var(--gold-hi);opacity:0}
+.stamp-wrap.fresh .dust{animation:dust .7s .2s ease-out}
+@keyframes stampIn{from{transform:scale(2);opacity:0;filter:blur(4px)}}
+@keyframes dust{0%{opacity:.8;transform:scale(1)}100%{opacity:0;transform:scale(24,7)}}
+.counter{align-self:flex-end;font-size:12px;font-weight:700;font-variant-numeric:tabular-nums;display:flex;align-items:center;gap:6px}
+.counter svg{width:16px;height:14px;opacity:.8}
+
+/* Barre de commandes */
+.cmdbar{display:flex;justify-content:space-between;align-items:center;gap:12px 20px;flex-wrap:wrap;border-top:1px solid;border-image:linear-gradient(90deg,transparent,var(--line),transparent) 1;padding-top:10px}
+.cmdbar .left,.cmdbar .right{display:flex;gap:6px 18px;flex-wrap:wrap;align-items:center}
+.cmdbar .right{justify-content:flex-end}
+.hint{background:none;border:0;color:var(--ink);font-size:13px;font-weight:700;display:flex;align-items:center;gap:7px;cursor:pointer;padding:4px 2px;text-shadow:0 1px 3px #000;font-style:italic}
+.hint .k{min-width:22px;height:22px;padding:0 6px;border-radius:11px;background:var(--ink);color:#111;font-size:10.5px;font-style:normal;display:grid;place-items:center;font-weight:700;text-shadow:none}
+.hint:hover .k,.hint:focus-visible .k{background:var(--frame);box-shadow:0 0 8px var(--frame)}
+.hint:focus-visible{outline:none}
+.hint.danger:hover .k{background:#ffb3ab}
+.status{font-size:11.5px;color:var(--muted);font-style:italic}
+
+/* Fenêtres */
+.modal{position:fixed;inset:0;z-index:25;background:rgba(0,0,0,.6);display:grid;place-items:center;padding:16px;overflow-y:auto;animation:fadeIn .18s ease both}
+.sheet{position:relative;width:min(640px,100%);background:rgba(6,8,11,.94);border:1px solid var(--line);padding:26px 28px 18px;display:flex;flex-direction:column;gap:14px;box-shadow:0 20px 70px rgba(0,0,0,.7);animation:sheetIn .25s cubic-bezier(.2,.9,.3,1) both}
+.sheet::before{content:"";position:absolute;inset:5px;border:1px solid var(--line-soft);pointer-events:none}
+.sheet.wide{width:min(760px,100%)}
+.sheet h2{margin:0;font-size:20px;font-weight:800}
+.sheet h3{margin:0 0 8px;font-size:13px;color:var(--gold);font-weight:700;letter-spacing:.03em}
+.sheet section{display:flex;flex-direction:column;gap:8px;padding-top:10px;border-top:1px solid var(--line-soft)}
+@keyframes sheetIn{from{opacity:0;transform:translateY(10px) scale(.98)}}
+.field{display:flex;flex-direction:column;gap:5px;min-width:0}
+.lab{font-size:11.5px;color:var(--muted);font-weight:700;letter-spacing:.02em}
+.lab small{font-weight:500}
+.field input,.field textarea{background:rgba(255,255,255,.04);border:0;border-bottom:1px solid var(--line);color:var(--ink);font:inherit;font-style:italic;font-size:14.5px;padding:8px 10px;outline:none;resize:vertical}
+.field input:focus,.field textarea:focus{border-bottom-color:var(--frame);background:rgba(255,255,255,.07)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.catpick{display:flex;gap:8px;flex-wrap:wrap}
+.catpick button{display:flex;align-items:center;gap:8px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.12);color:var(--muted);padding:6px 12px;cursor:pointer;font-weight:700;font-style:italic;font-size:13px}
+.catpick button svg{width:22px;height:18px}
+.catpick button[aria-checked="true"]{color:var(--ink);border-color:var(--frame);box-shadow:0 0 8px rgba(255,248,210,.35)}
+.ai-row{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.btn{background:rgba(217,194,124,.1);border:1px solid var(--gold);color:var(--gold-hi);padding:7px 14px;cursor:pointer;font-weight:700;font-style:italic;font-size:13px}
+.btn:hover,.btn:focus-visible{background:rgba(217,194,124,.22);outline:none}
+.btn:disabled{opacity:.5;cursor:wait}
+.btn.ghost{background:none;border-color:rgba(255,255,255,.25);color:var(--ink)}
+.msg{font-size:12px;color:var(--muted)}
+.msg.err{color:#ff9b8f}
+.btn-file{position:relative;overflow:hidden;display:inline-flex}
+.btn-file input{position:absolute;inset:0;opacity:0;cursor:pointer}
+.imgpick{display:flex;align-items:center;gap:12px;flex-wrap:wrap}
+.imgpick img{width:96px;height:72px;object-fit:cover;border:1px solid var(--line)}
+.sheet-f{display:flex;justify-content:flex-end;gap:18px;flex-wrap:wrap;padding-top:6px}
+.walls{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px}
+.wallcard{background:none;border:1px solid rgba(255,255,255,.15);padding:0;cursor:pointer;color:var(--ink);text-align:left;display:flex;flex-direction:column;font-style:italic}
+.wallcard canvas,.wallcard img,.wallcard video,.wallcard .ph{width:100%;aspect-ratio:16/9;display:block;object-fit:cover;background:#111}
+.wallcard .ph{display:grid;place-items:center;color:var(--muted);font-size:12px}
+.wallcard span{padding:6px 8px;font-size:12px;font-weight:700}
+.wallcard[aria-checked="true"]{border-color:var(--frame);box-shadow:0 0 10px rgba(255,248,210,.4)}
+.slider{display:grid;grid-template-columns:130px minmax(0,1fr) 3em;align-items:center;gap:10px;font-size:13px}
+.slider input{accent-color:var(--gold);width:100%}
+.slider output{font-variant-numeric:tabular-nums;color:var(--muted);text-align:right}
+.chk{display:flex;align-items:center;gap:8px;font-size:13px;cursor:pointer}
+.chk input{accent-color:var(--gold)}
+.testrow{display:flex;flex-wrap:wrap;gap:10px 16px;align-items:center}
+.testrow input[type=range]{width:180px;accent-color:var(--gold)}
+.confirm p{margin:0;line-height:1.5}
+.savestate{display:flex;align-items:center;gap:8px;font-size:11.5px;color:var(--muted);font-style:italic;flex-wrap:wrap}
+.savestate .dot{width:7px;height:7px;border-radius:50%;background:#7bd86a;box-shadow:0 0 6px #7bd86a;flex:none}
+.savestate.busy .dot{background:var(--gold);box-shadow:0 0 6px var(--gold);animation:caret .5s steps(2,jump-none) infinite}
+.savestate.err .dot{background:#ff7a6e;box-shadow:0 0 6px #ff7a6e}
+.savestate button{background:none;border:0;border-bottom:1px dotted var(--gold);color:var(--gold-hi);font:inherit;padding:0;cursor:pointer}
+.bklist{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:4px;max-height:220px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
+.bklist li{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:6px 10px;background:linear-gradient(90deg,rgba(255,255,255,.05),transparent);font-size:13px}
+.bklist li .when{font-weight:700}
+.bklist li .info{color:var(--muted);font-size:12px;font-variant-numeric:tabular-nums}
+.bklist li .btn{padding:4px 10px;font-size:12px}
+.keyrow{display:flex;gap:8px;align-items:stretch}
+.keyrow input{flex:1;min-width:0}
+.diskbox{display:flex;flex-direction:column;gap:6px;padding:10px 12px;border:1px solid var(--line-soft);background:rgba(255,255,255,.03)}
+.diskbox .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;padding-top:4px}
+.msg.ok{color:#a8e39a}
+
+/* Quête accomplie */
+.fx{position:fixed;inset:0;z-index:30;cursor:pointer;overflow:hidden}
+.fx-dim{position:absolute;inset:0;background:radial-gradient(ellipse at center,rgba(0,0,0,.35),rgba(0,0,0,.8));animation:fxDim 4.6s ease both}
+@keyframes fxDim{0%{opacity:0}8%{opacity:1}86%{opacity:1}100%{opacity:0}}
+.fx canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none}
+.fx-flash{position:absolute;inset:0;background:radial-gradient(circle at center,rgba(255,246,214,.55),transparent 60%);opacity:0;animation:flash .7s .62s ease-out}
+@keyframes flash{0%{opacity:0}15%{opacity:1}100%{opacity:0}}
+.fx-stage{position:absolute;left:0;right:0;top:50%;height:250px;margin-top:-125px}
+.fx-band{position:absolute;inset:0;background:linear-gradient(90deg,transparent,rgba(0,0,0,.88) 16%,rgba(0,0,0,.88) 84%,transparent);clip-path:inset(50% 0 50% 0);animation:bandOpen .55s .35s cubic-bezier(.2,.9,.3,1) forwards,bandClose .45s 3.75s ease-in forwards}
+@keyframes bandOpen{to{clip-path:inset(0 0 0 0)}}
+@keyframes bandClose{from{clip-path:inset(0 0 0 0)}to{clip-path:inset(50% 0 50% 0)}}
+.fx-line{position:absolute;left:8%;right:8%;top:50%;height:1px;background:linear-gradient(90deg,transparent,var(--gold-hi),transparent);box-shadow:0 0 10px var(--gold);transform:scaleX(0)}
+.fx-line.top{animation:lineTop .9s .05s cubic-bezier(.2,.9,.3,1) forwards,lineTopC .45s 3.75s ease-in forwards}
+.fx-line.bot{animation:lineBot .9s .05s cubic-bezier(.2,.9,.3,1) forwards,lineBotC .45s 3.75s ease-in forwards}
+@keyframes lineTop{0%{transform:translateY(0) scaleX(0)}35%{transform:translateY(0) scaleX(1)}100%{transform:translateY(-125px) scaleX(1)}}
+@keyframes lineBot{0%{transform:translateY(0) scaleX(0)}35%{transform:translateY(0) scaleX(1)}100%{transform:translateY(124px) scaleX(1)}}
+@keyframes lineTopC{from{transform:translateY(-125px) scaleX(1)}80%{transform:translateY(0) scaleX(1);opacity:1}to{transform:translateY(0) scaleX(0);opacity:0}}
+@keyframes lineBotC{from{transform:translateY(124px) scaleX(1)}80%{transform:translateY(0) scaleX(1);opacity:1}to{transform:translateY(0) scaleX(0);opacity:0}}
+.fx-content{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;text-align:center;padding:0 16px;animation:fxOut .4s 3.65s ease-in forwards}
+@keyframes fxOut{to{opacity:0;transform:scale(.97)}}
+.fx-emblem{position:relative;width:78px;height:78px;display:grid;place-items:center;margin-bottom:4px}
+.fx-rays{position:absolute;inset:-70px;background:repeating-conic-gradient(from 0deg,rgba(246,230,173,.28) 0 4deg,transparent 4deg 18deg);-webkit-mask:radial-gradient(circle,#000 18%,transparent 62%);mask:radial-gradient(circle,#000 18%,transparent 62%);opacity:0;animation:raysIn .6s .55s ease-out forwards,spin 9s linear infinite}
+@keyframes raysIn{to{opacity:1}}
+@keyframes spin{to{rotate:360deg}}
+.fx-ring{position:absolute;inset:0;border-radius:50%;border:2px solid var(--gold-hi);box-shadow:0 0 18px var(--gold),inset 0 0 14px rgba(217,194,124,.5);transform:scale(0);animation:ringIn .55s .5s cubic-bezier(.2,1.5,.4,1) forwards}
+.fx-ring.r2{inset:7px;border-width:1px;border-style:dashed;animation:ringIn .55s .58s cubic-bezier(.2,1.5,.4,1) forwards,spin 6s linear infinite reverse}
+@keyframes ringIn{to{transform:scale(1)}}
+.fx-wave{position:absolute;inset:0;border-radius:50%;border:2px solid var(--gold-hi);opacity:0;animation:wave .9s .62s ease-out}
+.fx-wave.w2{animation-delay:.8s}
+@keyframes wave{0%{opacity:.9;transform:scale(1)}100%{opacity:0;transform:scale(5)}}
+.fx-icon{position:relative;color:#fff;width:40px;height:34px;opacity:0;animation:iconIn .5s .6s ease-out forwards;filter:drop-shadow(0 0 8px var(--gold))}
+.fx-icon svg{width:100%;height:100%}
+@keyframes iconIn{from{opacity:0;transform:scale(.3)}to{opacity:1}}
+.fx-title{font-family:var(--f-stamp);font-style:normal;font-size:clamp(28px,5vw,52px);letter-spacing:.1em;color:var(--gold);white-space:nowrap;position:relative}
+.fx-title span{display:inline-block;opacity:0;animation:letter .5s cubic-bezier(.2,.9,.3,1) forwards;text-shadow:0 0 18px rgba(217,194,124,.7),0 2px 2px #000}
+@keyframes letter{from{opacity:0;transform:translateY(-14px) scale(1.8);filter:blur(6px);color:#fff}to{opacity:1}}
+.fx-sweep{position:absolute;inset:0;overflow:hidden;pointer-events:none;mix-blend-mode:screen}
+.fx-sweep::before{content:"";position:absolute;top:0;bottom:0;width:18%;left:-20%;background:linear-gradient(100deg,transparent,rgba(255,246,214,.45),transparent);transform:skewX(-18deg);animation:sweep 1.1s 1.5s ease-in-out forwards}
+@keyframes sweep{to{left:110%}}
+.fx-name{font-size:19px;font-weight:800;opacity:0;animation:up .6s 1.25s ease-out forwards;text-shadow:0 2px 4px #000}
+.fx-stat{font-size:12.5px;color:var(--muted);opacity:0;animation:up .6s 1.55s ease-out forwards}
+.fx-skip{position:absolute;right:max(24px,env(safe-area-inset-right,0px));bottom:calc(24px + env(safe-area-inset-bottom,0px));font-size:11px;color:var(--muted);opacity:0;animation:up .5s 1.8s forwards}
+@keyframes up{from{opacity:0;transform:translateY(8px)}to{opacity:1}}
+.fx.leaving{animation:fadeOut .3s forwards}
+@keyframes fadeOut{to{opacity:0}}
+
+/* Pause nocturne */
+.night{position:fixed;inset:0;z-index:40;background:#05070d;display:flex;flex-direction:column;align-items:center;justify-content:flex-end;gap:10px;text-align:center;padding-block:0 calc(8vh + env(safe-area-inset-bottom,0px));padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));animation:fadeIn 1.2s ease both}
+.night canvas{position:absolute;inset:0;width:100%;height:100%}
+.night::before{content:"";position:absolute;inset:0;background:linear-gradient(180deg,transparent 45%,rgba(0,0,0,.65));z-index:1}
+.night > :not(canvas){position:relative;z-index:2}
+.night .eyebrow{font-size:12px;color:var(--gold);letter-spacing:.12em;font-weight:700}
+.night h2{margin:0;font-family:var(--f-stamp);font-style:normal;font-weight:400;font-size:clamp(30px,4.5vw,46px);letter-spacing:.08em;text-shadow:0 0 24px rgba(200,210,255,.35)}
+.night p{margin:0;color:#c7cad8;font-size:15px;max-width:44ch;line-height:1.5;text-shadow:0 1px 3px #000}
+.night .count{font-family:var(--f-stamp);font-style:normal;font-size:24px;color:var(--gold);letter-spacing:.06em;font-variant-numeric:tabular-nums;margin-top:4px}
+.night .rule{margin:4px auto}
+.night button{margin-top:14px;background:none;border:1px solid rgba(255,255,255,.22);color:#a6a9ba;font-size:12px;padding:6px 14px;cursor:pointer;font-style:italic}
+.night button:hover,.night button:focus-visible{color:#fff;border-color:#fff;outline:none}
+@keyframes fadeIn{from{opacity:0}}
+
+.toast{position:fixed;left:50%;bottom:calc(28px + env(safe-area-inset-bottom,0px));transform:translateX(-50%);background:rgba(0,0,0,.88);border:1px solid var(--gold);padding:10px 18px;font-size:13px;z-index:50;max-width:calc(100% - 32px);animation:fadeIn .2s ease both}
+
+@media (max-width:820px){
+  header{grid-template-columns:1fr auto;grid-template-areas:"t t" "h c"}
+  .title-block{grid-area:t}
+  .hud-left{grid-area:h}
+  .capital{grid-area:c}
+  main{grid-template-columns:minmax(0,1fr)}
+  .list-wrap{max-height:40vh}
+  .panel{min-height:380px;padding:20px}
+  .two{grid-template-columns:1fr}
+  .walls{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .screen-frame .c{width:38px;height:38px}
+  .screen-frame .et,.screen-frame .eb{left:38px;right:38px}
+  .screen-frame .el,.screen-frame .er{top:38px;bottom:38px}
+  .slider{grid-template-columns:100px minmax(0,1fr) 3em}
+}
+@media (prefers-reduced-motion:reduce){
+  *,*::before,*::after{animation-duration:.01ms!important;animation-delay:0s!important;animation-iteration-count:1!important;transition:none!important}
+}
+</style>
+</head>
+<body>
+<div id="wall" aria-hidden="true"></div>
+<div class="veil" aria-hidden="true"></div>
+<div class="grain" aria-hidden="true"></div>
+<div class="screen-frame" aria-hidden="true">
+  <div class="c tl"></div><div class="c tr"></div><div class="c bl"></div><div class="c br"></div>
+  <div class="e et"></div><div class="e eb"></div><div class="e el"></div><div class="e er"></div>
+</div>
+
+<div class="app" id="app">
+  <header>
+    <div class="hud-left">
+      <div class="hearts" id="hearts" role="img" aria-label="Temps restant"></div>
+      <div class="clock" id="clock"></div>
+      <button class="tracked" id="tracked" hidden></button>
+    </div>
+    <div class="title-block">
+      <div class="title-row">
+        <h1>Journal d'aventure</h1>
+        <button class="subtab" id="open-settings" title="Réglages (R)">
+          <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="3"/><path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3M4 4l2.1 2.1M13.9 13.9L16 16M4 16l2.1-2.1M13.9 6.1L16 4"/></svg>
+          Réglages <span class="kk">R</span>
+        </button>
+      </div>
+      <div class="rule" aria-hidden="true"><span></span><i></i><span></span></div>
+    </div>
+    <button class="capital" id="capital" title="Cliquer pour modifier ton capital">
+      <svg viewBox="0 0 16 26" aria-hidden="true"><polygon points="8,0 16,6 16,20 8,26 0,20 0,6" fill="#3fbf36"/><polygon points="8,4 12.5,8 12.5,18 8,22 3.5,18 3.5,8" fill="#7cf06a"/><polygon points="8,4 12.5,8 8,10 3.5,8" fill="#c8ffc0"/></svg>
+      <span id="capital-val">…</span>
+    </button>
+  </header>
+
+  <main>
+    <section class="col-left" aria-label="Quêtes">
+      <div class="cat-label" id="cat-label"></div>
+      <div class="tabs-row">
+        <span class="kk" aria-hidden="true">←</span>
+        <div class="tabs" role="tablist" id="tabs">
+          <svg class="tab-mark" id="tab-mark" viewBox="0 0 18 10" aria-hidden="true"><path d="M2 2l7 6 7-6" fill="none" stroke="#fff" stroke-width="2"/><circle cx="9" cy="1.5" r="1.5" fill="#fff"/></svg>
+        </div>
+        <span class="kk" aria-hidden="true">→</span>
+      </div>
+      <div class="list-box">
+        <div class="list-wrap" id="list-wrap">
+          <ul class="list" id="list"></ul>
+          <div class="sel-frame" id="sel-frame" hidden><i class="a"></i><i class="b"></i><i class="c"></i><i class="d"></i><span class="glint"></span></div>
+        </div>
+        <div class="scroll" id="scroll" hidden><span class="cap t"></span><span class="thumb" id="thumb"></span><span class="cap b"></span></div>
+      </div>
+      <button class="new-quest" id="new-quest">+ Nouvelle quête <span class="k">N</span></button>
+    </section>
+
+    <section class="col-right" aria-live="polite">
+      <article class="panel" id="panel">
+        <span class="pc p1"></span><span class="pc p2"></span><span class="pc p3"></span><span class="pc p4"></span>
+        <div class="wm" id="wm" aria-hidden="true"></div>
+        <svg class="rings" viewBox="0 0 200 200" aria-hidden="true" fill="none" stroke="#fff" stroke-width=".7"><circle cx="100" cy="100" r="96"/><circle cx="100" cy="100" r="82" stroke-dasharray="2 3"/><circle cx="100" cy="100" r="64"/><circle cx="100" cy="100" r="44" stroke-dasharray="8 4"/><path d="M100 4v192M4 100h192M32 32l136 136M168 32L32 168"/></svg>
+        <div class="panel-in" id="panel-in"></div>
+      </article>
+    </section>
+  </main>
+
+  <div class="cmdbar">
+    <div class="left"><span class="status" id="status">Ouverture du journal…</span><span class="savestate" id="savestate" hidden></span></div>
+    <div class="right" id="hints"></div>
+  </div>
+</div>
+
+<!-- Fenêtre : quête -->
+<div class="modal" id="m-form" hidden>
+  <form class="sheet" id="qform" novalidate>
+    <h2 id="qf-h">Nouvelle quête</h2>
+    <div class="field"><span class="lab" id="qf-cat-l">Catégorie</span><div class="catpick" id="qf-cat" role="radiogroup" aria-labelledby="qf-cat-l"></div></div>
+    <label class="field"><span class="lab">Titre</span><input id="qf-name" maxlength="80" placeholder="Ex. : Le colis oublié" autocomplete="off"></label>
+    <div class="two">
+      <label class="field"><span class="lab">Lieu</span><input id="qf-place" maxlength="60" placeholder="Ex. : Bureau de poste" autocomplete="off"></label>
+      <label class="field" id="qf-giver-f"><span class="lab">Donneur de quête</span><input id="qf-giver" maxlength="40" placeholder="Ex. : Moi, Maman, Claire" autocomplete="off"></label>
+    </div>
+    <label class="field"><span class="lab" id="qf-note-l">Ce qu'il faut faire, en quelques mots</span><input id="qf-note" maxlength="240" placeholder="Ex. : récupérer le colis au guichet avant samedi midi" autocomplete="off"></label>
+    <div class="ai-row" id="qf-ai-row">
+      <button type="button" class="btn" id="qf-ai">✦ Rédiger avec l'IA</button>
+      <button type="button" class="btn ghost" id="qf-stop" hidden>Arrêter</button>
+      <span class="msg" id="qf-ai-msg"></span>
+    </div>
+    <label class="field"><span class="lab">Description <small>· entoure un mot de **astérisques** pour l'écrire en rouge</small></span><textarea id="qf-desc" rows="6"></textarea></label>
+    <div class="field" id="qf-img-f" hidden>
+      <span class="lab">Image du souvenir</span>
+      <div class="imgpick">
+        <img id="qf-img-prev" alt="" hidden>
+        <span class="btn ghost btn-file">Choisir une image<input type="file" id="qf-img" accept="image/png,image/jpeg,image/webp,image/gif"></span>
+        <button type="button" class="btn ghost" id="qf-img-rm" hidden>Retirer l'image</button>
+        <span class="msg" id="qf-img-msg"></span>
+      </div>
+    </div>
+    <span class="msg err" id="qf-err" role="alert"></span>
+    <div class="sheet-f">
+      <button type="button" class="hint" id="qf-cancel"><span class="k">Échap</span>Annuler</button>
+      <button type="submit" class="hint" id="qf-save"><span class="k">✓</span>Inscrire au journal</button>
+    </div>
+  </form>
+</div>
+
+<!-- Fenêtre : confirmation -->
+<div class="modal" id="m-confirm" hidden>
+  <div class="sheet confirm" role="alertdialog" aria-labelledby="cf-h">
+    <h2 id="cf-h">Effacer cette quête ?</h2>
+    <p id="cf-p"></p>
+    <div class="sheet-f">
+      <button type="button" class="hint" id="cf-no"><span class="k">Échap</span>Garder</button>
+      <button type="button" class="hint danger" id="cf-yes"><span class="k">⏎</span><span id="cf-yes-l">Effacer</span></button>
+    </div>
+  </div>
+</div>
+
+<!-- Fenêtre : réglages -->
+<div class="modal" id="m-set" hidden>
+  <div class="sheet wide" role="dialog" aria-labelledby="set-h">
+    <h2 id="set-h">Réglages</h2>
+    <section>
+      <h3>Intelligence artificielle · Gemini</h3>
+      <p class="msg">Ta clé reste dans ce navigateur, sur cet ordinateur. Elle n'est jamais mise dans les sauvegardes ni dans les copies.</p>
+      <label class="field"><span class="lab">Clé d'API Gemini</span>
+        <span class="keyrow"><input id="ai-key" type="password" autocomplete="off" spellcheck="false" placeholder="Colle ta clé ici"><button type="button" class="btn ghost" id="ai-show">Afficher</button></span>
+      </label>
+      <div class="two">
+        <label class="field"><span class="lab">Modèle</span><input id="ai-model" list="ai-models" autocomplete="off" spellcheck="false" placeholder="gemini-flash-latest"><datalist id="ai-models"></datalist></label>
+        <div class="field"><span class="lab">Modèles disponibles</span><button type="button" class="btn ghost" id="ai-list">Charger la liste de ma clé</button></div>
+      </div>
+      <div class="testrow"><button type="button" class="btn" id="ai-save">Enregistrer</button><button type="button" class="btn ghost" id="ai-test">Tester la clé</button><span class="msg" id="ai-msg"></span></div>
+    </section>
+    <section>
+      <h3>Fond d'écran</h3>
+      <div class="walls" id="walls" role="radiogroup" aria-label="Fond d'écran"></div>
+      <div class="ai-row">
+        <span class="btn ghost btn-file" id="wall-file-btn">Importer une image ou une vidéo<input type="file" id="wall-file" accept="image/png,image/jpeg,image/webp,image/gif,video/mp4,video/webm"></span>
+        <span class="msg" id="wall-msg">Images ou vidéos (MP4, WebM). Le fichier reste sur cet ordinateur.</span>
+      </div>
+      <label class="slider">Flou <input type="range" id="wall-blur" min="0" max="20" step="1"><output id="wall-blur-v"></output></label>
+      <label class="slider">Assombrissement <input type="range" id="wall-dim" min="0" max="85" step="5"><output id="wall-dim-v"></output></label>
+    </section>
+    <section>
+      <h3>Sons</h3>
+      <label class="chk"><input type="checkbox" id="snd"> Activer les sons du journal</label>
+    </section>
+    <section>
+      <h3>Sauvegardes</h3>
+      <p class="msg" id="save-mode"></p>
+      <div class="diskbox" id="diskbox"></div>
+      <div class="testrow">
+        <button class="btn ghost" id="exp-btn">Télécharger une copie (.json)</button>
+        <span class="btn ghost btn-file">Importer une copie (.json)<input type="file" id="imp-file" accept="application/json,.json"></span>
+        <button class="btn ghost" id="imp-dir">Restaurer depuis un dossier</button>
+      </div>
+      <span class="msg" id="exp-msg"></span>
+      <span class="lab">Historique automatique · un point toutes les 15 minutes d'activité et avant chaque effacement (20 gardés), plus l'état de chaque journée (30 jours)</span>
+      <ul class="bklist" id="bklist"></ul>
+    </section>
+    <section>
+      <h3>Essayer</h3>
+      <div class="testrow">
+        <label class="chk"><input type="checkbox" id="sim"> Simuler l'heure</label>
+        <input type="range" id="simh" min="300" max="1410" step="5" value="1275" disabled aria-label="Heure simulée"><output id="simv" class="msg">21:15</output>
+      </div>
+      <div class="testrow">
+        <button class="btn ghost" id="night-preview">Voir la pause nocturne</button>
+        <button class="btn ghost" id="fx-preview">Voir « Quête accomplie »</button>
+      </div>
+    </section>
+    <section>
+      <h3>Journal</h3>
+      <div class="testrow"><button class="btn ghost" id="rm-examples">Effacer les quêtes d'exemple</button><span class="msg" id="rm-msg"></span></div>
+    </section>
+    <div class="sheet-f"><button type="button" class="hint" id="set-close"><span class="k">Échap</span>Fermer</button></div>
+  </div>
+</div>
+
+<script>
+(function(){
+"use strict";
+const $ = s => document.querySelector(s);
+const local = {
+  get(k,d){try{const v=localStorage.getItem(k);return v===null?d:JSON.parse(v)}catch(e){return d}},
+  set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}}
+};
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const rng = seed => { let s=(seed*9301+49297)%2147483647; if(s<=0)s+=2147483646; return ()=>(s=s*16807%2147483647)/2147483647; };
+
+/* ================= Icônes originales ================= */
+const ICON = {
+  main:`<svg viewBox="0 0 32 26" aria-hidden="true"><g fill="currentColor"><path d="M16 15C12 9 7 6 1 6c2.5 1.6 3.8 2.8 4.4 4C3.6 10 2.2 10.6 1.4 11.4c2.6 1 4.6 1.4 6.4 1.4-1.2.8-2.2 1.6-2.8 2.4 3.8.6 7.4.4 11-.2z"/><path d="M16 15c4-6 9-9 15-9-2.5 1.6-3.8 2.8-4.4 4 1.8 0 3.2.6 4 1.4-2.6 1-4.6 1.4-6.4 1.4 1.2.8 2.2 1.6 2.8 2.4-3.8.6-7.4.4-11-.2z"/><path d="M16 12l3 4.5-3 6-3-6z"/></g></svg>`,
+  side:`<svg viewBox="0 0 32 26" aria-hidden="true"><path d="M5 3h22a3 3 0 0 1 3 3v11a3 3 0 0 1-3 3H15l-7 5v-5H5a3 3 0 0 1-3-3V6a3 3 0 0 1 3-3z" fill="currentColor"/><g fill="#111"><circle cx="10" cy="11.5" r="1.8"/><circle cx="16" cy="11.5" r="1.8"/><circle cx="22" cy="11.5" r="1.8"/></g></svg>`,
+  mem:`<svg viewBox="0 0 32 26" aria-hidden="true"><rect x="4" y="1" width="24" height="24" rx="1.5" fill="currentColor"/><rect x="9" y="5" width="14" height="16" fill="#111"/><g fill="#111"><rect x="5.5" y="3" width="2" height="2.6"/><rect x="5.5" y="8" width="2" height="2.6"/><rect x="5.5" y="13" width="2" height="2.6"/><rect x="5.5" y="18" width="2" height="2.6"/><rect x="24.5" y="3" width="2" height="2.6"/><rect x="24.5" y="8" width="2" height="2.6"/><rect x="24.5" y="13" width="2" height="2.6"/><rect x="24.5" y="18" width="2" height="2.6"/></g></svg>`
+};
+const TRACK = `<svg class="track" viewBox="0 0 18 18" aria-label="Quête suivie"><circle cx="9" cy="9" r="7.5" fill="none" stroke="#f2cf3c" stroke-width="2"/><circle cx="9" cy="9" r="3.2" fill="#f2cf3c"/></svg>`;
+const BANG = `<svg viewBox="0 0 13 13" aria-hidden="true"><circle cx="6.5" cy="6.5" r="6.5" fill="#e0322b"/><rect x="5.6" y="2.6" width="1.8" height="5" rx=".6" fill="#fff"/><circle cx="6.5" cy="9.6" r="1.05" fill="#fff"/></svg>`;
+const PIN = `<svg viewBox="0 0 10 13" aria-hidden="true"><path d="M5 12.5S1 7.6 1 4.8a4 4 0 0 1 8 0C9 7.6 5 12.5 5 12.5z" fill="currentColor"/><circle cx="5" cy="4.8" r="1.5" fill="#111"/></svg>`;
+const CORNER = `<svg viewBox="0 0 64 64" fill="none" stroke="currentColor"><path d="M1 63V16L16 1h47" stroke-width="1.4"/><path d="M7 63V19L19 7h44" stroke-width=".7" opacity=".7"/><path d="M27 19a7 7 0 1 0-7 7h2.5a4.5 4.5 0 1 0-4.5-4.5v.8a2 2 0 1 0 2-2" stroke-width="1.2"/><path d="M34 7h8M7 34v8" stroke-width="2.4"/><path d="M48 1v4M1 48h4" stroke-width="1"/><circle cx="16" cy="1" r="1.6" fill="currentColor" stroke="none"/><circle cx="1" cy="16" r="1.6" fill="currentColor" stroke="none"/></svg>`;
+const PCORNER = `<svg viewBox="0 0 22 22" fill="none" stroke="currentColor"><path d="M1 21V5l4-4h16" stroke-width="1.2"/><path d="M6 9l3-3 3 3-3 3z" fill="currentColor" stroke="none" opacity=".8"/></svg>`;
+document.querySelectorAll(".screen-frame .c").forEach(c=>c.innerHTML=CORNER);
+document.querySelectorAll(".panel .pc").forEach(c=>c.innerHTML=PCORNER);
+
+const CATS = [
+  {id:"main", label:"Quêtes principales", one:"Quête principale", count:"Quêtes principales accomplies"},
+  {id:"side", label:"Quêtes secondaires", one:"Quête secondaire", count:"Quêtes secondaires accomplies"},
+  {id:"mem",  label:"Souvenirs", one:"Souvenir", count:"Souvenirs retrouvés"}
+];
+const catOf = id => CATS.find(c=>c.id===id);
+
+/* Exemples, utilisés seulement si la sauvegarde en ligne n'est pas disponible */
+const EXAMPLES = [
+  {id:"ex1",cat:"main",title:"Le grand déménagement",place:"Appartement des Lilas",giver:"Moi",created:1,example:true,
+   desc:"Les cartons s'empilent depuis trois lunes dans le couloir. Avant la venue des porteurs, il faudra **vider le grenier** et trier ce qui mérite de suivre l'aventure.\n\nLes vieux meubles pourraient trouver preneur au **marché aux puces** du dimanche."},
+  {id:"ex2",cat:"main",title:"L'épreuve du permis",place:"Auto-école des Tilleuls",giver:"Moniteur Bastien",created:2,example:true,
+   desc:"Le moniteur assure que tu es prête. Il reste à franchir **l'examen du code**, puis la grande épreuve sur route.\n\nUne révision chaque soir suffira à apaiser les esprits du rond-point."},
+  {id:"ex3",cat:"main",title:"Remettre de l'ordre dans les comptes",place:"Maison",giver:"La Banque",created:3,done:true,example:true,
+   desc:"Les relevés du trimestre ont été rangés et **le budget** a retrouvé son équilibre.\n\nLa Banque n'envoie plus de lettres scellées. Pour l'instant."},
+  {id:"ex4",cat:"side",title:"Le colis oublié",place:"Bureau de poste",giver:"Le facteur",created:4,example:true,
+   desc:"Un avis de passage dort sur le buffet. Le colis attend au **guichet n°2** jusqu'à samedi midi.\n\nN'oublie pas une **pièce d'identité** : le gardien du guichet est intraitable."},
+  {id:"ex5",cat:"side",title:"Un dîner pour six",place:"Cuisine",giver:"Maman",created:5,example:true,
+   desc:"Six convives sont attendus vendredi. Maman réclame sa fameuse **tarte aux poireaux**.\n\nIl manque de la crème, et un peu de patience."},
+  {id:"ex6",cat:"mem",title:"La randonnée du col",place:"Col des Aravis",giver:"",created:6,example:true,
+   desc:"Le vent soufflait fort au sommet, mais la vue sur la vallée valait chaque pas. On a partagé le pain et le fromage sur un rocher plat, face aux glaciers."}
+];
+
+/* ================= État ================= */
+let quests = [];
+let settings = {capital:0, followed:null, wall:{kind:"lake"}, blur:6, dim:35};
+let ready = false;
+let cat = local.get("tab","main"); if(!catOf(cat)) cat="main";
+const selId = {main:null,side:null,mem:null};
+let fxActive=false, pendingStamp=null, freshStamp=null;
+
+/* ================= Sauvegarde (sur cet ordinateur) ================= */
+const rq=r=>new Promise((res,rej)=>{ r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); });
+const IDB={
+  db:null,
+  async open(){
+    if(!("indexedDB" in window)) throw new Error("indexedDB absent");
+    this.db=await new Promise((res,rej)=>{
+      const r=indexedDB.open("journal-aventure",1);
+      r.onupgradeneeded=()=>{ const d=r.result;
+        ["quests","backups"].forEach(n=>{ if(!d.objectStoreNames.contains(n)) d.createObjectStore(n,{keyPath:"id"}); });
+        ["kv","files"].forEach(n=>{ if(!d.objectStoreNames.contains(n)) d.createObjectStore(n); }); };
+      r.onsuccess=()=>res(r.result); r.onerror=()=>rej(r.error); r.onblocked=()=>rej(new Error("bloqué"));
+    });
+  },
+  st(n,m){ return this.db.transaction(n,m||"readonly").objectStore(n); },
+  get(n,k){ return rq(this.st(n).get(k)); },
+  all(n){ return rq(this.st(n).getAll()); },
+  put(n,v,k){ const s=this.st(n,"readwrite"); return rq(k===undefined?s.put(v):s.put(v,k)); },
+  del(n,k){ return rq(this.st(n,"readwrite").delete(k)); }
+};
+let persisted=false;
+let aiCfg={key:"",model:"gemini-flash-latest"};
+const Store={
+  mode:"loading", pending:0, lastSaved:null, failed:false, chains:{},
+  queue(key,fn){ const p=(this.chains[key]||Promise.resolve()).then(fn); this.chains[key]=p.catch(()=>{}); return p; },
+  async init(){
+    try{ await IDB.open(); this.mode="idb"; }catch(e){ this.mode="memory"; }
+    if(this.mode==="idb"){
+      try{
+        quests=await IDB.all("quests");
+        const s=await IDB.get("kv","settings"); if(s) settings=Object.assign({},settings,s);
+        if(!(await IDB.get("kv","initialized"))){
+          if(!quests.length){ for(const q of EXAMPLES) await IDB.put("quests",Object.assign({},q)); quests=EXAMPLES.map(q=>Object.assign({},q)); }
+          await IDB.put("kv",true,"initialized");
+        }
+        const g=await IDB.get("kv","gemini"); if(g) aiCfg=Object.assign(aiCfg,g);
+      }catch(e){ this.mode="memory"; }
+      try{ if(navigator.storage&&navigator.storage.persist) persisted=(await navigator.storage.persisted())||(await navigator.storage.persist()); }catch(e){}
+      await Disk.init();
+    }
+    if(this.mode!=="idb"){ quests=EXAMPLES.map(q=>Object.assign({},q)); setStatus("Ce navigateur bloque la sauvegarde : tes changements seront perdus en fermant la page."); }
+    else setStatus("");
+    ready=true; applySettings(); renderAll(); renderSave();
+  },
+  track(p){
+    this.pending++; renderSave();
+    return p.then(()=>{ this.lastSaved=Date.now(); this.failed=false; },
+                  ()=>{ this.failed=true; toast("Enregistrement impossible : l'espace de stockage est peut-être plein."); })
+            .finally(()=>{ this.pending--; renderSave(); Backup.schedule(); Disk.schedule(); });
+  },
+  async putQuest(q){
+    const i=quests.findIndex(x=>x.id===q.id); if(i>=0) quests[i]=q; else quests.push(q);
+    renderAll();
+    if(this.mode!=="idb") return;
+    const body=Object.assign({},q);
+    return this.track(this.queue("q/"+q.id,()=>IDB.put("quests",body)));
+  },
+  async removeQuest(id){
+    quests=quests.filter(q=>q.id!==id); renderAll();
+    if(this.mode!=="idb") return;
+    return this.track(this.queue("q/"+id,()=>IDB.del("quests",id)));
+  },
+  async putSettings(patch){
+    settings=Object.assign({},settings,patch); applySettings();
+    if(this.mode!=="idb") return;
+    const body=JSON.parse(JSON.stringify(settings));
+    return this.track(this.queue("settings",()=>IDB.put("kv",body,"settings")));
+  }
+};
+function setStatus(t){ $("#status").textContent=t; }
+const newId = () => "q"+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+
+/* --- Fichiers (images, vidéos) gardés dans le navigateur --- */
+const Files={
+  urls:{},
+  async add(file){
+    const id="f"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+    await IDB.put("files",{blob:file,type:file.type,name:file.name||"",size:file.size},id);
+    Disk.schedule(); return id;
+  },
+  async put(id,blob,type,name){ await IDB.put("files",{blob,type,name:name||"",size:blob.size},id); },
+  get(id){ return Store.mode==="idb"?IDB.get("files",id).catch(()=>null):Promise.resolve(null); },
+  async url(id){
+    if(!id) return null; if(this.urls[id]) return this.urls[id];
+    const r=await this.get(id); if(!r) return null;
+    return this.urls[id]=URL.createObjectURL(r.blob);
+  },
+  del(id){ if(this.urls[id]){ URL.revokeObjectURL(this.urls[id]); delete this.urls[id]; } return Store.mode==="idb"?IDB.del("files",id).catch(()=>{}):Promise.resolve(); }
+};
+const FILE_RE=/^f[a-z0-9]{4,40}$/;
+function referencedFiles(){
+  const ids=new Set(); quests.forEach(q=>{ if(q.image&&FILE_RE.test(q.image)) ids.add(q.image); });
+  const w=settings.wall; if(w&&w.file&&FILE_RE.test(w.file)) ids.add(w.file);
+  return [...ids];
+}
+async function exportData(){
+  const files={};
+  for(const id of referencedFiles()){ const r=await Files.get(id); if(r) files[id]={type:r.type,name:r.name}; }
+  const st=JSON.parse(JSON.stringify(settings));
+  return {app:"journal-aventure",format:2,exportedAt:Date.now(),quests,settings:st,files};
+}
+
+/* --- Sauvegarde automatique dans un dossier de l'ordinateur --- */
+const Disk={
+  ok:"showDirectoryPicker" in window, handle:null, state:"none", lastWrite:null, timer:0, written:new Set(), busy:false, err:false,
+  async init(){
+    if(!this.ok||Store.mode!=="idb") return;
+    try{ this.handle=(await IDB.get("kv","dirHandle"))||null; }catch(e){ this.handle=null; }
+    if(!this.handle){ this.state="none"; return; }
+    try{ const p=await this.handle.queryPermission({mode:"readwrite"}); this.state=p==="granted"?"ok":"ask"; }catch(e){ this.state="ask"; }
+  },
+  async choose(){
+    try{
+      const h=await window.showDirectoryPicker({id:"journal-aventure",mode:"readwrite",startIn:"documents"});
+      this.handle=h; await IDB.put("kv",h,"dirHandle"); this.state="ok"; this.written.clear();
+      await this.write(); toast(`Sauvegarde automatique activée dans le dossier « ${h.name} ».`); SFX.save();
+    }catch(e){ if(!(e&&e.name==="AbortError")) toast("Ce dossier ne peut pas être utilisé. Choisis-en un autre, par exemple dans Documents."); }
+    renderSave(); if(!$("#m-set").hidden) renderSettings();
+  },
+  async reconnect(){
+    if(!this.handle) return this.choose();
+    try{ const p=await this.handle.requestPermission({mode:"readwrite"}); this.state=p==="granted"?"ok":"ask"; if(this.state==="ok") await this.write(); }catch(e){ this.state="ask"; }
+    renderSave(); if(!$("#m-set").hidden) renderSettings();
+  },
+  async forget(){ this.handle=null; this.state="none"; await IDB.del("kv","dirHandle").catch(()=>{}); renderSave(); renderSettings(); },
+  schedule(){ if(this.state!=="ok") return; clearTimeout(this.timer); this.timer=setTimeout(()=>this.write(),1500); },
+  async writeFile(dir,name,data){ const fh=await dir.getFileHandle(name,{create:true}); const w=await fh.createWritable(); await w.write(data); await w.close(); },
+  async write(){
+    this.timer=0;
+    if(this.state!=="ok"||!this.handle) return;
+    this.busy=true; renderSave();
+    try{
+      const data=await exportData(), json=JSON.stringify(data,null,2);
+      await this.writeFile(this.handle,"journal.json",json);
+      const hd=await this.handle.getDirectoryHandle("historique",{create:true});
+      await this.writeFile(hd,`journal-${Backup.dayKey().slice(1)}.json`,json);
+      const ids=Object.keys(data.files);
+      if(ids.length){
+        const md=await this.handle.getDirectoryHandle("medias",{create:true});
+        for(const id of ids){
+          if(this.written.has(id)) continue;
+          let exists=false; try{ await md.getFileHandle(id); exists=true; }catch(e){}
+          if(!exists){ const r=await Files.get(id); if(r) await this.writeFile(md,id,r.blob); }
+          this.written.add(id);
+        }
+      }
+      this.lastWrite=Date.now(); this.err=false;
+    }catch(e){ if(e&&e.name==="NotAllowedError") this.state="ask"; else this.err=true; }
+    this.busy=false; renderSave();
+  }
+};
+async function importMedias(h,files){
+  if(!files||typeof files!=="object") return 0;
+  let md=null; try{ md=await h.getDirectoryHandle("medias"); }catch(e){ return 0; }
+  let got=0;
+  for(const id of Object.keys(files)){
+    if(!FILE_RE.test(id)) continue;
+    try{ const f=await (await md.getFileHandle(id)).getFile(); const meta=files[id]||{};
+      await Files.put(id,f,typeof meta.type==="string"&&meta.type?meta.type:f.type,typeof meta.name==="string"?meta.name:""); got++; }catch(e){}
+  }
+  return got;
+}
+
+/* ================= Copies de secours (historique) ================= */
+const KEEP=30, KEEP_R=20, ID_RE=/^[A-Za-z0-9_\-.~:@+]{1,200}$/;
+const Backup={
+  timer:0, lastJson:null, lastKey:null, lastPoint:0,
+  schedule(){ if(!ready) return; clearTimeout(this.timer); this.timer=setTimeout(()=>this.run(),4000); },
+  snapshot(){ return {at:Date.now(), count:quests.length, quests:quests.map(q=>Object.assign({},q)), settings:JSON.parse(JSON.stringify(settings))}; },
+  dayKey(d=new Date()){ return "j"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); },
+  async write(id,snap){ if(Store.mode!=="idb") return; snap.id=id; await IDB.put("backups",snap); },
+  async point(note){ const snap=this.snapshot(); if(note) snap.note=note; try{ await this.write("r"+Date.now(),snap); this.lastPoint=Date.now(); await this.prune(); }catch(e){} },
+  async run(){
+    const snap=this.snapshot(), key=this.dayKey(), json=JSON.stringify({q:snap.quests,s:snap.settings});
+    if(json===this.lastJson) return;
+    try{ await this.write(key,snap); this.lastJson=json; }catch(e){ return; }
+    if(Date.now()-this.lastPoint>15*60000) await this.point(); else if(this.lastKey!==key) await this.prune();
+    this.lastKey=key; renderSave();
+  },
+  async list(){ if(Store.mode!=="idb") return []; return IDB.all("backups"); },
+  async prune(){
+    try{ const all=await this.list();
+      for(const [pre,max] of [["j",KEEP],["r",KEEP_R]]){
+        const l=all.filter(b=>b.id.startsWith(pre)).sort((a,b)=>(b.at||0)-(a.at||0));
+        for(const b of l.slice(max)) await IDB.del("backups",b.id);
+      } }catch(e){}
+  }
+};
+function cleanSnapshot(raw){
+  if(!raw||typeof raw!=="object"||!Array.isArray(raw.quests)) return null;
+  const qs=[];
+  for(const q of raw.quests){
+    if(!q||typeof q!=="object"||typeof q.id!=="string"||!ID_RE.test(q.id)||!catOf(q.cat)||typeof q.title!=="string") continue;
+    const o={id:q.id,cat:q.cat,title:q.title.slice(0,120)};
+    ["place","giver","note","desc"].forEach(k=>{ if(typeof q[k]==="string") o[k]=q[k].slice(0,4000); });
+    o.created=typeof q.created==="number"?q.created:Date.now(); o.done=!!q.done;
+    if(typeof q.doneAt==="number") o.doneAt=q.doneAt;
+    if(typeof q.image==="string"&&FILE_RE.test(q.image)) o.image=q.image;
+    if(q.example===true) o.example=true;
+    qs.push(o);
+  }
+  const st={}, rs=raw.settings&&typeof raw.settings==="object"?raw.settings:{};
+  if(typeof rs.capital==="number"&&isFinite(rs.capital)) st.capital=rs.capital;
+  if(typeof rs.blur==="number") st.blur=Math.max(0,Math.min(20,rs.blur));
+  if(typeof rs.dim==="number") st.dim=Math.max(0,Math.min(85,rs.dim));
+  if(typeof rs.lastExport==="number") st.lastExport=rs.lastExport;
+  st.followed=(typeof rs.followed==="string"&&qs.some(q=>q.id===rs.followed))?rs.followed:null;
+  st.wall={kind:"lake"};
+  if(rs.wall&&typeof rs.wall==="object"){
+    if(SCENES[rs.wall.kind]) st.wall={kind:rs.wall.kind};
+    else if(rs.wall.kind==="custom"&&typeof rs.wall.file==="string"&&FILE_RE.test(rs.wall.file)) st.wall={kind:"custom",file:rs.wall.file,media:rs.wall.media==="video"?"video":"image"};
+  }
+  return {quests:qs,settings:st,at:typeof raw.at==="number"?raw.at:(typeof raw.exportedAt==="number"?raw.exportedAt:null)};
+}
+async function dropMissingFiles(snap){
+  for(const q of snap.quests) if(q.image&&!(await Files.get(q.image))) delete q.image;
+  const w=snap.settings.wall; if(w&&w.kind==="custom"&&!(await Files.get(w.file))) snap.settings.wall={kind:"lake"};
+}
+let restoring=false;
+async function restore(snap){
+  restoring=true; renderSave();
+  try{
+    await dropMissingFiles(snap);
+    await Backup.write("avant-restauration",Backup.snapshot());
+    const keep=new Set(snap.quests.map(q=>q.id));
+    for(const q of quests.slice()) if(!keep.has(q.id)) await Store.removeQuest(q.id);
+    for(const q of snap.quests) await Store.putQuest(Object.assign({},q));
+    await Store.putSettings(snap.settings);
+    CATS.forEach(c=>selId[c.id]=null);
+    toast(`Journal restauré : ${snap.quests.length} quête${snap.quests.length>1?"s":""}.`); SFX.save();
+  } finally { restoring=false; renderAll(); renderSave(); }
+}
+const ago=t=>{ const d=Math.floor((Date.now()-t)/86400000); return d<=0?"aujourd'hui":d===1?"hier":`il y a ${d} jours`; };
+const hm=t=>new Date(t).toLocaleTimeString("fr-FR",{hour:"2-digit",minute:"2-digit"});
+function renderSave(){
+  const el=$("#savestate"); if(!el) return;
+  if(!ready){ el.hidden=true; return; }
+  el.hidden=false;
+  const busy=Store.pending||restoring||Disk.busy, bad=Store.failed||Store.mode!=="idb"||Disk.err;
+  el.className="savestate"+(busy?" busy":bad?" err":"");
+  let txt;
+  if(restoring) txt="Restauration en cours…";
+  else if(Store.pending) txt="Sauvegarde…";
+  else if(Store.mode!=="idb") txt="Sauvegarde impossible dans ce navigateur";
+  else if(Store.failed) txt="Dernière modification non enregistrée. Réessaie.";
+  else txt=Store.lastSaved?`Sauvegardé à ${hm(Store.lastSaved)}`:"Journal sauvegardé sur cet ordinateur";
+  if(Disk.state==="ok"&&!restoring) txt+=Disk.err?" · le dossier de sauvegarde ne répond pas":Disk.busy?" · copie dans le dossier…":Disk.lastWrite?` · dossier « ${Disk.handle.name} » à jour`:` · dossier « ${Disk.handle.name} »`;
+  el.innerHTML=`<span class="dot" aria-hidden="true"></span><span class="tx"></span>`; el.querySelector(".tx").textContent=txt;
+  if(Store.mode!=="idb") return;
+  const real=quests.some(q=>!q.example);
+  if(Disk.state==="ask"){ const b=document.createElement("button"); b.textContent=`Reconnecter le dossier « ${Disk.handle.name} »`; b.onclick=()=>Disk.reconnect(); el.appendChild(b); }
+  else if(Disk.state==="none"&&Disk.ok&&real){ const b=document.createElement("button"); b.textContent="Activer la sauvegarde dans un dossier"; b.onclick=()=>Disk.choose(); el.appendChild(b); }
+  else if(!Disk.ok&&real){ const le=settings.lastExport; if(!le||Date.now()-le>7*86400000){ const b=document.createElement("button"); b.textContent=le?`Copie sur ton ordinateur : ${ago(le)}. En refaire une`:"Faire une copie sur ton ordinateur"; b.onclick=exportFile; el.appendChild(b); } }
+}
+async function exportFile(){
+  const msg=$("#exp-msg"), name=`journal-aventure-${Backup.dayKey().slice(1)}.json`;
+  try{
+    const data=JSON.stringify(await exportData(),null,2), url=URL.createObjectURL(new Blob([data],{type:"application/json"}));
+    const a=document.createElement("a"); a.href=url; a.download=name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(url),4000);
+    if(msg) msg.textContent=`Copie « ${name} » téléchargée (le texte, sans les images).`;
+    Store.putSettings({lastExport:Date.now()}); toast("Copie téléchargée.");
+  }catch(e){ if(msg) msg.textContent="Le téléchargement n'a pas pu se faire."; }
+}
+const fmtDay=id=>{ const m=/^j(\d{4})-(\d{2})-(\d{2})$/.exec(id); if(!m) return id; return new Date(+m[1],+m[2]-1,+m[3]).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}); };
+async function renderBackups(){
+  const ul=$("#bklist"); ul.innerHTML=`<li class="msg">Lecture de l'historique…</li>`;
+  let l=[]; try{ l=await Backup.list(); }catch(e){ ul.innerHTML=`<li class="msg">L'historique ne peut pas être lu pour le moment.</li>`; return; }
+  l.sort((a,b)=>(b.at||0)-(a.at||0)); ul.innerHTML="";
+  if(!l.length){ ul.innerHTML=`<li class="msg">Pas encore de copie : la première se fait quelques secondes après ta prochaine modification.</li>`; return; }
+  l.forEach(b=>{
+    const li=document.createElement("li"), n=Array.isArray(b.quests)?b.quests.length:0;
+    li.innerHTML=`<span><span class="when"></span> <span class="info"></span></span>`;
+    const day=b.at?new Date(b.at).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"}).replace(/^./,c=>c.toUpperCase()):fmtDay(b.id);
+    li.querySelector(".when").textContent=b.id==="avant-restauration"?"Avant la dernière restauration":`${day}${b.at?" à "+hm(b.at):""}`;
+    li.querySelector(".info").textContent=`· ${n} quête${n>1?"s":""}${b.note?" · "+b.note:(b.id.startsWith("j")?" · dernier état de la journée":"")}`;
+    const btn=document.createElement("button"); btn.className="btn ghost"; btn.textContent="Restaurer";
+    btn.onclick=()=>{ const snap=cleanSnapshot(b); if(!snap) return toast("Cette copie est illisible.");
+      askConfirm("Restaurer cette copie ?",`Ton journal reviendra à l'état du ${li.querySelector(".when").textContent.toLowerCase()} (${n} quête${n>1?"s":""}). L'état actuel est gardé dans l'historique, sous « Avant la dernière restauration ».`,"Restaurer",()=>restore(snap)); };
+    li.appendChild(btn); ul.appendChild(li);
+  });
+}
+
+/* ================= IA : Gemini ================= */
+async function saveAiCfg(){ if(Store.mode==="idb") await IDB.put("kv",{key:aiCfg.key,model:aiCfg.model},"gemini"); }
+function aiError(code,message){ const e=new Error(message||code); e.code=code; return e; }
+async function gemini(prompt,{signal,onText}={}){
+  const key=(aiCfg.key||"").trim(), model=(aiCfg.model||"gemini-flash-latest").trim().replace(/^models\//,"");
+  if(!key) throw aiError("no_key");
+  let res;
+  try{
+    res=await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:streamGenerateContent?alt=sse`,{
+      method:"POST", signal, headers:{"content-type":"application/json","x-goog-api-key":key},
+      body:JSON.stringify({contents:[{role:"user",parts:[{text:prompt}]}],generationConfig:{temperature:.9}})
+    });
+  }catch(e){ if(e&&e.name==="AbortError") throw aiError("cancelled"); throw aiError("network"); }
+  if(!res.ok){
+    let j={}; try{ j=await res.json(); }catch(e){}
+    const st=(j.error&&j.error.status)||"", m=(j.error&&j.error.message)||"";
+    if(res.status===400&&/api key/i.test(m)) throw aiError("bad_key",m);
+    if(res.status===401||res.status===403) throw aiError("denied",m);
+    if(res.status===404) throw aiError("no_model",m);
+    if(res.status===429||st==="RESOURCE_EXHAUSTED") throw aiError("quota",m);
+    throw aiError("upstream",m||("HTTP "+res.status));
+  }
+  const reader=res.body.getReader(), dec=new TextDecoder(); let buf="", text="", blocked=null;
+  try{
+    for(;;){
+      const {done,value}=await reader.read(); if(done) break;
+      buf+=dec.decode(value,{stream:true});
+      let i; while((i=buf.indexOf("\n"))>=0){
+        const line=buf.slice(0,i).trim(); buf=buf.slice(i+1);
+        if(!line.startsWith("data:")) continue;
+        let j; try{ j=JSON.parse(line.slice(5)); }catch(e){ continue; }
+        if(j.promptFeedback&&j.promptFeedback.blockReason) blocked=j.promptFeedback.blockReason;
+        const parts=(j.candidates&&j.candidates[0]&&j.candidates[0].content&&j.candidates[0].content.parts)||[];
+        for(const p of parts) if(typeof p.text==="string"&&!p.thought) text+=p.text;
+        if(onText&&text) onText(text);
+      }
+    }
+  }catch(e){ if(e&&e.name==="AbortError"){ const er=aiError("cancelled"); er.text=text; throw er; } throw aiError("network"); }
+  if(!text.trim()) throw aiError(blocked?"refused":"empty");
+  return text;
+}
+function aiMsg(e){
+  switch(e&&e.code){
+    case "no_key": return "Ajoute d'abord ta clé Gemini dans Réglages (touche R).";
+    case "bad_key": return "Google refuse cette clé. Vérifie-la dans Réglages.";
+    case "denied": return "Cette clé n'a pas accès à Gemini. Vérifie ses restrictions dans Google AI Studio.";
+    case "no_model": return "Ce modèle Gemini n'existe pas ou plus. Choisis-en un autre dans Réglages.";
+    case "quota": return "Limite d'utilisation de Gemini atteinte. Réessaie plus tard, ou vérifie ton forfait Google.";
+    case "network": return "Impossible de joindre Gemini. Vérifie ta connexion Internet.";
+    case "refused": return "Gemini n'a pas voulu rédiger ce texte. Reformule les notes.";
+    case "empty": return "Gemini n'a rien répondu. Réessaie.";
+    default: return "La rédaction a échoué. Réessaie, ou écris-la toi-même.";
+  }
+}
+
+/* ================= Sons (synthétisés) ================= */
+let ac=null, master=null;
+const soundOn = () => local.get("sound",true);
+function actx(){
+  if(!ac){ try{
+    ac=new (window.AudioContext||window.webkitAudioContext)();
+    master=ac.createGain(); master.gain.value=.9;
+    const dly=ac.createDelay(); dly.delayTime.value=.19; const fb=ac.createGain(); fb.gain.value=.28; const wet=ac.createGain(); wet.gain.value=.35;
+    master.connect(ac.destination); master.connect(dly); dly.connect(fb).connect(dly); dly.connect(wet).connect(ac.destination);
+  }catch(e){ ac=null; } }
+  if(ac&&ac.state==="suspended") ac.resume();
+  return ac;
+}
+function tone(freq,dur,type="sine",vol=.05,when=0,slide){
+  const a=actx(); if(!a||!soundOn()) return;
+  const t=a.currentTime+when, o=a.createOscillator(), g=a.createGain();
+  o.type=type; o.frequency.setValueAtTime(freq,t); if(slide) o.frequency.exponentialRampToValueAtTime(slide,t+dur);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+.01); g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+  o.connect(g).connect(master); o.start(t); o.stop(t+dur+.05);
+}
+function noise(dur,f1,f2,vol=.08,when=0){
+  const a=actx(); if(!a||!soundOn()) return;
+  const len=Math.floor(a.sampleRate*dur), b=a.createBuffer(1,len,a.sampleRate), d=b.getChannelData(0);
+  for(let i=0;i<len;i++) d[i]=(Math.random()*2-1)*Math.sin(Math.PI*i/len);
+  const s=a.createBufferSource(), f=a.createBiquadFilter(), g=a.createGain(), t=a.currentTime+when;
+  f.type="bandpass"; f.frequency.setValueAtTime(f1,t); f.frequency.exponentialRampToValueAtTime(f2,t+dur); f.Q.value=1.2;
+  g.gain.value=vol; s.buffer=b; s.connect(f).connect(g).connect(master); s.start(t);
+}
+const SFX = {
+  move(){ tone(1500,.05,"sine",.03); tone(2250,.04,"sine",.012,.01); },
+  tab(){ noise(.16,900,3200,.07); tone(880,.08,"triangle",.022,.03); },
+  open(){ noise(.22,500,2400,.05); tone(660,.12,"triangle",.02,.02); tone(990,.14,"triangle",.016,.07); },
+  type(){ tone(2600+Math.random()*400,.015,"sine",.005); },
+  stamp(){ tone(95,.35,"sine",.13,0,55); noise(.18,300,120,.06); },
+  save(){ tone(1175,.12,"triangle",.03); tone(1568,.18,"triangle",.03,.08); },
+  fanfare(){
+    noise(.6,400,5000,.05);
+    tone(70,.9,"sine",.16,.6,40);
+    [523.25,659.25,783.99,1046.5].forEach((f,i)=>{ tone(f,1.9,"triangle",.035,.6+i*.02); tone(f*2,1.2,"sine",.01,.6+i*.02); });
+    [1567.98,2093,2637,3136,4186].forEach((f,i)=>tone(f,.45,"sine",.022,.9+i*.08));
+    [1318.5,1567.98,2093].forEach((f,i)=>tone(f,1.3,"sine",.015,1.6+i*.14));
+  }
+};
+addEventListener("pointerdown",()=>actx(),{once:true});
+addEventListener("keydown",()=>actx(),{once:true});
+
+/* ================= Scènes de fond (originales) ================= */
+function buildLake(W,H,seed=7){
+  const r=rng(seed), c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d");
+  const U=Math.min(W,H);
+  let gr=g.createLinearGradient(0,0,0,H*.5); gr.addColorStop(0,"#080b19"); gr.addColorStop(.55,"#151929"); gr.addColorStop(1,"#262a3d");
+  g.fillStyle=gr; g.fillRect(0,0,W,H);
+  // Voie lactée
+  for(let i=0;i<300;i++){
+    const t=r(), x=W*(.55+.07*t+(r()-.5)*.07), y=H*(.32*t)+(r()-.5)*H*.05, rad=U*(.015+r()*.06);
+    const col=r()<.6?"150,58,108":"104,78,168", gg=g.createRadialGradient(x,y,0,x,y,rad);
+    gg.addColorStop(0,`rgba(${col},${.035+r()*.05})`); gg.addColorStop(1,`rgba(${col},0)`); g.fillStyle=gg; g.fillRect(x-rad,y-rad,rad*2,rad*2);
+  }
+  for(let i=0;i<40;i++){ const t=r(), x=W*(.56+.07*t+(r()-.5)*.03), y=H*.32*t, rad=U*(.01+r()*.02);
+    const gg=g.createRadialGradient(x,y,0,x,y,rad); gg.addColorStop(0,"rgba(8,10,22,.35)"); gg.addColorStop(1,"rgba(8,10,22,0)"); g.fillStyle=gg; g.fillRect(x-rad,y-rad,rad*2,rad*2); }
+  // Étoiles
+  const tw=[]; const n=Math.round(W*H/1100);
+  for(let i=0;i<n+500;i++){
+    let x,y; if(i<n){ x=r()*W; y=r()*H*.46; } else { const t=r(); x=W*(.55+.07*t+(r()-.5)*.08); y=H*.33*t+(r()-.5)*H*.05; }
+    const big=r()>.975, s=big?1.3+r()*1.2:.4+r()*.9, a=.25+r()*.75;
+    if(r()<.12){ tw.push({x,y,s:s+.3,a,ph:r()*6.3,sp:.6+r()*2.4}); continue; }
+    g.globalAlpha=a; g.fillStyle=r()<.1?"#ffe9d6":(r()<.1?"#d6e4ff":"#fff"); g.fillRect(x,y,s,s);
+  }
+  g.globalAlpha=1;
+  // Lune
+  const mx=W*.385, my=H*.11, mr=Math.max(6,U*.028);
+  let mg=g.createRadialGradient(mx,my,mr*.8,mx,my,mr*7); mg.addColorStop(0,"rgba(225,230,255,.28)"); mg.addColorStop(1,"rgba(225,230,255,0)");
+  g.fillStyle=mg; g.fillRect(mx-mr*7,my-mr*7,mr*14,mr*14);
+  mg=g.createRadialGradient(mx-mr*.3,my-mr*.3,mr*.2,mx,my,mr); mg.addColorStop(0,"#fbfaf3"); mg.addColorStop(1,"#d9d8cf");
+  g.fillStyle=mg; g.beginPath(); g.arc(mx,my,mr,0,7); g.fill();
+  g.fillStyle="rgba(140,140,130,.28)";
+  [[-.3,-.2,.28],[.25,.1,.22],[-.05,.35,.18],[.35,-.35,.12],[-.4,.25,.1]].forEach(([dx,dy,rr])=>{ g.beginPath(); g.ellipse(mx+dx*mr,my+dy*mr,rr*mr,rr*mr*.85,0,0,7); g.fill(); });
+  // Montagne enneigée
+  const lakeY=H*.5;
+  const mtn=[[.47,.38],[.53,.33],[.57,.285],[.6,.25],[.625,.232],[.645,.228],[.67,.243],[.7,.262],[.75,.285],[.8,.3],[.86,.322],[.92,.36],[.95,.38]];
+  function mountain(flip,alpha){
+    g.save(); if(flip){ g.translate(0,lakeY*2); g.scale(1,-1); } g.globalAlpha=alpha;
+    const mg2=g.createLinearGradient(0,H*.22,0,H*.38); mg2.addColorStop(0,"#dfe3ec"); mg2.addColorStop(.55,"#9aa1b3"); mg2.addColorStop(1,"#3c4152");
+    g.fillStyle=mg2; g.beginPath(); g.moveTo(W*mtn[0][0],H*mtn[0][1]); mtn.forEach(([x,y])=>g.lineTo(W*x,H*y)); g.lineTo(W*.95,H*.4); g.lineTo(W*.47,H*.4); g.closePath(); g.fill();
+    const rr=rng(seed+11);
+    for(let i=0;i<9;i++){
+      const px=W*(.6+rr()*.2), py=H*(.235+rr()*.035), len=H*(.05+rr()*.07), wd=W*(.006+rr()*.014);
+      const sg=g.createLinearGradient(px,py,px,py+len); sg.addColorStop(0,"rgba(52,58,78,.3)"); sg.addColorStop(1,"rgba(52,58,78,0)");
+      g.fillStyle=sg; g.beginPath(); g.moveTo(px,py); g.quadraticCurveTo(px+wd*1.4,py+len*.5,px+wd*.6,py+len); g.lineTo(px-wd*.4,py+len); g.quadraticCurveTo(px-wd*.2,py+len*.5,px,py); g.fill();
+    }
+    const sh=g.createLinearGradient(W*.64,0,W*.9,0); sh.addColorStop(0,"rgba(30,34,50,0)"); sh.addColorStop(1,"rgba(30,34,50,.45)");
+    g.fillStyle=sh; g.beginPath(); g.moveTo(W*.645,H*.228); mtn.slice(6).forEach(([x,y])=>g.lineTo(W*x,H*y)); g.lineTo(W*.95,H*.4); g.lineTo(W*.68,H*.4); g.closePath(); g.fill();
+    g.restore();
+  }
+  mountain(false,1);
+  g.save(); g.filter=`blur(${Math.max(2,U*.008)}px)`; g.fillStyle="rgba(215,222,236,.22)";
+  for(let i=0;i<7;i++){ g.beginPath(); g.ellipse(W*(.6+r()*.18),H*(.255+r()*.04),W*(.03+r()*.05),H*(.008+r()*.012),0,0,7); g.fill(); }
+  g.restore();
+  // Forêt lointaine
+  function ridgeY(x){ const t=x/W; return H*(.395 - .03*Math.sin(t*3.4+.3) - (t<.12?.04*(1-t/.12):0)); }
+  function forest(flip,alpha){
+    g.save(); if(flip){ g.translate(0,lakeY*2); g.scale(1,-1); } g.globalAlpha=alpha;
+    g.fillStyle="#0b1411"; g.beginPath(); g.moveTo(0,lakeY+1); for(let x=0;x<=W;x+=6) g.lineTo(x,ridgeY(x)+H*.012); g.lineTo(W,lakeY+1); g.fill();
+    const rr=rng(seed+3);
+    for(let x=0;x<W;x+=Math.max(2,U*.006)*(.6+rr())){
+      const h=H*(.018+rr()*.03)*(x<W*.08?2.6:1), y=ridgeY(x)+H*.014, w=h*.32;
+      g.fillStyle=rr()<.5?"#0a120f":"#0d1713"; g.beginPath(); g.moveTo(x,y-h); g.lineTo(x+w,y); g.lineTo(x-w,y); g.fill();
+    }
+    g.restore();
+  }
+  forest(false,1);
+  // Lac
+  gr=g.createLinearGradient(0,lakeY,0,H); gr.addColorStop(0,"#1f2436"); gr.addColorStop(.5,"#151a27"); gr.addColorStop(1,"#0c0f17");
+  g.fillStyle=gr; g.fillRect(0,lakeY,W,H-lakeY);
+  mountain(true,.22); forest(true,.85);
+  g.fillStyle="rgba(150,170,190,.12)"; g.fillRect(0,lakeY,W,Math.max(1,H*.002));
+  g.fillStyle="rgba(255,255,255,.025)"; for(let y=lakeY;y<H;y+=Math.max(2,H*.006)) g.fillRect(0,y,W,1);
+  g.fillStyle="#132018"; g.beginPath(); g.moveTo(0,lakeY+H*.01); g.quadraticCurveTo(W*.12,lakeY+H*.015,W*.2,lakeY+H*.05); g.lineTo(W*.05,lakeY+H*.07); g.lineTo(0,lakeY+H*.08); g.fill();
+  // Pins au premier plan
+  function pine(x,top,base,width,col){
+    const layers=Math.max(6,Math.round((base-top)/(H*.018)));
+    g.fillStyle=col; g.beginPath(); g.moveTo(x,top);
+    for(let k=1;k<=layers;k++){ const y=top+(base-top)*k/layers, hw=width*(k/layers)*(.75+r()*.35); g.lineTo(x+hw,y); g.lineTo(x+hw*.45,y-(base-top)/layers*.25); }
+    for(let k=layers;k>=1;k--){ const y=top+(base-top)*k/layers, hw=width*(k/layers)*(.75+r()*.35); g.lineTo(x-hw*.45,y-(base-top)/layers*.25); g.lineTo(x-hw,y); }
+    g.closePath(); g.fill();
+  }
+  const trees=[[.04,.6],[.16,.66],[.3,.6],[.37,.68],[.5,.64],[.62,.58],[.69,.55],[.78,.66],[.88,.62],[.97,.6],[.23,.72],[.56,.74]];
+  trees.forEach(([tx,ty])=>{ const top=H*(ty+(r()-.5)*.04), x=W*(tx+(r()-.5)*.03); pine(x,top,H*1.02,(H-top)*.22,r()<.5?"#0c1812":"#0f1d16"); });
+  let bg=g.createLinearGradient(0,H*.8,0,H); bg.addColorStop(0,"rgba(8,14,10,0)"); bg.addColorStop(.35,"#0a120d"); bg.addColorStop(1,"#070c09");
+  g.fillStyle=bg; g.fillRect(0,H*.8,W,H*.2);
+  for(let i=0;i<Math.round(W*1.4);i++){ const x=r()*W, y=H*(.8+r()*.21), h=U*(.012+r()*.04), lean=(r()-.5)*h*.6;
+    g.fillStyle=["#0a130e","#0d1811","#102015","#0c150f"][Math.floor(r()*4)]; g.beginPath(); g.moveTo(x-h*.06,y); g.quadraticCurveTo(x+lean*.3,y-h*.6,x+lean,y-h); g.quadraticCurveTo(x+lean*.2,y-h*.5,x+h*.06,y); g.fill(); }
+  for(let i=0;i<70;i++){ g.fillStyle="rgba(200,210,230,.18)"; g.fillRect(r()*W,H*(.84+r()*.15),Math.max(1,U*.002),Math.max(1,U*.002)); }
+  const fl=[]; for(let i=0;i<16;i++) fl.push({x:r()*W,y:H*(.55+r()*.35),ph:r()*6.3,sp:.3+r()*.6,rx:U*(.02+r()*.05)});
+  return {canvas:c,W,H,U,tw,fl,mx,my,mr,lakeY,anim:true};
+}
+function drawLake(g,s,t){
+  g.drawImage(s.canvas,0,0);
+  for(const st of s.tw){ g.globalAlpha=st.a*(.45+.55*Math.sin(t*st.sp+st.ph)); g.fillStyle="#fff"; g.fillRect(st.x,st.y,st.s,st.s); }
+  const span=s.H*.3;
+  g.save(); g.translate(s.mx,s.lakeY); g.scale(1,span/(s.mr*2.4));
+  const cg=g.createRadialGradient(0,0,0,0,0,s.mr*2.4); cg.addColorStop(0,"rgba(220,225,245,.13)"); cg.addColorStop(1,"rgba(220,225,245,0)");
+  g.fillStyle=cg; g.fillRect(-s.mr*2.4,0,s.mr*4.8,s.mr*2.4); g.restore();
+  for(let y=s.lakeY+2;y<s.lakeY+span;y+=Math.max(1.5,s.H*.0035)){
+    const k=(y-s.lakeY)/span, w=s.mr*(.5+k*1.8)*(.35+.65*Math.abs(Math.sin(t*1.7+y*.23))), off=Math.sin(t*1.1+y*.06)*s.mr*.5;
+    g.globalAlpha=(1-k)*(1-k)*.32*(.4+.6*Math.abs(Math.sin(t*2.6+y*.41))); g.fillStyle="#eef0fa"; g.fillRect(s.mx-w/2+off,y,w,Math.max(1,s.H*.0012));
+  }
+  const mxp=((t*8)%(s.W*1.6))-s.W*.3, mist=g.createRadialGradient(mxp,s.lakeY+s.H*.02,0,mxp,s.lakeY+s.H*.02,s.W*.3);
+  mist.addColorStop(0,"rgba(190,200,220,.07)"); mist.addColorStop(1,"rgba(190,200,220,0)"); g.globalAlpha=1; g.fillStyle=mist; g.fillRect(mxp-s.W*.3,s.lakeY-s.H*.05,s.W*.6,s.H*.14);
+  for(const f of s.fl){
+    const x=f.x+Math.sin(t*f.sp+f.ph)*f.rx, y=f.y+Math.cos(t*f.sp*1.3+f.ph)*f.rx*.5, a=Math.max(0,Math.sin(t*1.5+f.ph*3));
+    const fg=g.createRadialGradient(x,y,0,x,y,s.U*.01); fg.addColorStop(0,`rgba(225,255,150,${.8*a})`); fg.addColorStop(1,"rgba(225,255,150,0)");
+    g.fillStyle=fg; g.fillRect(x-s.U*.01,y-s.U*.01,s.U*.02,s.U*.02);
+  }
+  const cyc=t%23; if(cyc<.9){ const p=cyc/.9, x0=s.W*.15, y0=s.H*.05, x=x0+p*s.W*.25, y=y0+p*s.H*.12;
+    const lg=g.createLinearGradient(x-s.W*.06,y-s.H*.03,x,y); lg.addColorStop(0,"rgba(255,255,255,0)"); lg.addColorStop(1,`rgba(255,255,255,${.8*(1-p)})`);
+    g.strokeStyle=lg; g.lineWidth=Math.max(1,s.U*.002); g.beginPath(); g.moveTo(x-s.W*.06,y-s.H*.03); g.lineTo(x,y); g.stroke(); }
+  g.globalAlpha=1;
+}
+function buildPlain(W,H){
+  const c=document.createElement("canvas"); c.width=W; c.height=H; const g=c.getContext("2d"), r=rng(42);
+  let grd=g.createLinearGradient(0,0,0,H); grd.addColorStop(0,"#6f9a8c"); grd.addColorStop(.45,"#b3b98a"); grd.addColorStop(1,"#3f5a22");
+  g.fillStyle=grd; g.fillRect(0,0,W,H);
+  g.fillStyle="#7b8f6a"; g.beginPath(); g.moveTo(0,H*.5); for(let x=0;x<=W;x+=W/60) g.lineTo(x,H*.42-Math.sin(x/W*6)*H*.05-Math.sin(x/W*17)*H*.015); g.lineTo(W,H); g.lineTo(0,H); g.fill();
+  g.fillStyle="#4f7a2c"; g.beginPath(); g.moveTo(0,H*.62); for(let x=0;x<=W;x+=W/60) g.lineTo(x,H*.6-Math.sin(x/W*8+1)*H*.04); g.lineTo(W,H); g.lineTo(0,H); g.fill();
+  for(let i=0;i<26;i++){ const x=r()*W, y=H*.45+r()*H*.25, rr=Math.min(W,H)*(.04+r()*.09); g.fillStyle=r()>.6?"#c9a93a":"#2f5a24"; g.globalAlpha=.85; g.beginPath(); g.arc(x,y,rr,0,7); g.fill(); }
+  g.globalAlpha=1; g.fillStyle="#6b8f2e"; g.fillRect(0,H*.78,W,H*.22);
+  const fl=[]; for(let i=0;i<24;i++) fl.push({x:r()*W,y:r()*H,ph:r()*6.3,sp:.2+r()*.4});
+  return {canvas:c,W,H,U:Math.min(W,H),fl,anim:true};
+}
+function drawPlain(g,s,t){
+  g.drawImage(s.canvas,0,0);
+  for(const f of s.fl){ const x=(f.x+t*12*f.sp)%s.W, y=f.y+Math.sin(t*f.sp+f.ph)*s.U*.03; g.globalAlpha=.35+.3*Math.sin(t+f.ph); g.fillStyle="#fff7d0"; g.beginPath(); g.arc(x,y,s.U*.004,0,7); g.fill(); }
+  g.globalAlpha=1;
+}
+const SCENES = {
+  lake:{label:"Lac au clair de lune",build:buildLake,draw:drawLake},
+  plain:{label:"Plaine dorée",build:buildPlain,draw:drawPlain}
+};
+function runScene(cv,kind,scale){
+  const sc=SCENES[kind]; let s=null, raf=0, last=0, alive=true;
+  function size(){ const w=cv.clientWidth||innerWidth, h=cv.clientHeight||innerHeight; cv.width=Math.max(2,Math.round(w*scale)); cv.height=Math.max(2,Math.round(h*scale)); s=sc.build(cv.width,cv.height); }
+  size();
+  const g=cv.getContext("2d");
+  function frame(ts){
+    if(!alive) return;
+    raf=requestAnimationFrame(frame);
+    if(document.hidden || ts-last<33) return; last=ts;
+    sc.draw(g,s,ts/1000);
+  }
+  sc.draw(g,s,0);
+  if(!reduce) raf=requestAnimationFrame(frame);
+  let rt=0; const onR=()=>{ clearTimeout(rt); rt=setTimeout(()=>{ size(); sc.draw(g,s,performance.now()/1000); },200); };
+  addEventListener("resize",onR);
+  return ()=>{ alive=false; cancelAnimationFrame(raf); removeEventListener("resize",onR); };
+}
+
+/* ================= Fond d'écran ================= */
+let wallKey="", stopWall=null;
+function applySettings(){
+  const root=document.documentElement.style;
+  root.setProperty("--blur",(settings.blur??6)+"px");
+  root.setProperty("--dimv",((settings.dim??35)/100).toFixed(2));
+  const w=settings.wall||{kind:"lake"}, key=w.kind+"|"+(w.kind==="custom"?(w.file||""):"");
+  if(key!==wallKey){
+    wallKey=key; if(stopWall){ stopWall(); stopWall=null; }
+    const box=$("#wall"); box.innerHTML="";
+    if(w.kind==="custom" && w.file){
+      const el=document.createElement(w.media==="video"?"video":"img");
+      if(w.media==="video"){ el.muted=true; el.loop=true; el.autoplay=true; el.playsInline=true; el.setAttribute("muted",""); }
+      el.alt=""; box.appendChild(el);
+      const fail=()=>{ if(wallKey!==key) return; toast("Ton fond d'écran n'a pas pu être chargé. Le lac s'affiche à la place."); wallKey=""; settings.wall=Object.assign({},w,{kind:"lake"}); applySettings(); };
+      el.onerror=fail;
+      Files.url(w.file).then(u=>{ if(wallKey!==key) return; if(u) el.src=u; else fail(); });
+    } else {
+      const cv=document.createElement("canvas"); box.appendChild(cv);
+      stopWall=runScene(cv,SCENES[w.kind]?w.kind:"lake",.7);
+    }
+  }
+  renderCapital(); renderTracked();
+  if(!$("#m-set").hidden) renderSettings();
+}
+
+/* ================= Cœurs = horloge 6h → 22h ================= */
+const HEART="M12 20.5C12 20.5 1.5 13.6 1.5 7.1C1.5 3.9 4 1.5 7 1.5C9.1 1.5 11 2.7 12 4.5C13 2.7 14.9 1.5 17 1.5C20 1.5 22.5 3.9 22.5 7.1C22.5 13.6 12 20.5 12 20.5Z";
+function pie(f){ const a=(-90+f*360)*Math.PI/180, x=12+24*Math.cos(a), y=11+24*Math.sin(a); return `M12 11L12 -13A24 24 0 ${f>.5?1:0} 1 ${x.toFixed(2)} ${y.toFixed(2)}Z`; }
+function heartSVG(i,f,blink){
+  const empty=`<path d="${HEART}" fill="#2b1517" stroke="#0a0505" stroke-width="1.2"/>`;
+  if(f<=0) return `<svg viewBox="0 0 24 22" aria-hidden="true">${empty}</svg>`;
+  const clip=f>=1?"":`<clipPath id="hc${i}"><path d="${pie(f)}"/></clipPath>`, ca=f>=1?"":`clip-path="url(#hc${i})"`;
+  return `<svg viewBox="0 0 24 22" aria-hidden="true" class="${blink?"blink":""}"><defs>${clip}</defs>${empty}<g ${ca}><path d="${HEART}" fill="var(--heart)" stroke="#5a0b12" stroke-width="1.2"/><ellipse cx="7.2" cy="6" rx="2.6" ry="1.6" fill="#fff" opacity=".55" transform="rotate(-30 7.2 6)"/></g></svg>`;
+}
+function nowMinutes(){ if($("#sim").checked) return +$("#simh").value; const d=new Date(); return d.getHours()*60+d.getMinutes()+d.getSeconds()/60; }
+const fmt=m=>String(Math.floor(m/60)%24).padStart(2,"0")+":"+String(Math.floor(m%60)).padStart(2,"0");
+const START=360, END=1320, N=16;
+function renderHearts(){
+  const m=nowMinutes(), remain=Math.max(0,Math.min(N,(END-m)/60));
+  let html=""; for(let i=0;i<N;i++){ let f=Math.max(0,Math.min(1,remain-i)); f=Math.ceil(f*4-1e-9)/4; html+=heartSVG(i,f,remain>0&&remain<=1&&i===0); }
+  $("#hearts").innerHTML=html;
+  const h=Math.floor(remain), mn=Math.round((remain-h)*60);
+  $("#hearts").setAttribute("aria-label",`Il reste ${h} h ${mn} min avant 22 h`);
+  $("#clock").textContent = remain>0 ? `${fmt(m)} · encore ${h} h ${String(mn).padStart(2,"0")}` : fmt(m);
+  checkNight(m);
+}
+
+/* ================= Pause nocturne ================= */
+let stayAwake=false, stopNight=null;
+const inNight=m=>m>=END||m<START;
+function checkNight(m){
+  const n=document.getElementById("night");
+  if(inNight(m)&&!stayAwake){ if(!n) showNight(false); else updateNight(m); }
+  else if(n&&!n.dataset.preview) closeNight();
+  if(!inNight(m)) stayAwake=false;
+}
+function showNight(preview){
+  const n=document.createElement("div"); n.className="night"; n.id="night"; if(preview) n.dataset.preview="1";
+  n.innerHTML=`<canvas aria-hidden="true"></canvas>
+    <div class="eyebrow">22 h 00 · Le journal est refermé</div>
+    <h2>La lune veille</h2>
+    <div class="rule" aria-hidden="true"><span></span><i></i><span></span></div>
+    <p>Le lac s'est tu, les pins dorment. Repose-toi : ton aventure reprendra son récit à l'aube, à 6 h 00.</p>
+    <div class="count" id="night-count"></div>
+    <button id="awake">${preview?"Fermer l'aperçu":"Veiller quand même"}</button>`;
+  document.body.appendChild(n);
+  stopNight=runScene(n.querySelector("canvas"),"lake",Math.min(devicePixelRatio||1,1.5));
+  n.querySelector("#awake").onclick=()=>{ if(!preview) stayAwake=true; closeNight(); };
+  updateNight(nowMinutes());
+}
+function closeNight(){ const n=document.getElementById("night"); if(stopNight){ stopNight(); stopNight=null; } if(n) n.remove(); }
+function updateNight(m){
+  const c=document.getElementById("night-count"); if(!c) return;
+  const left=(START-m+1440)%1440, h=Math.floor(left/60), mn=Math.floor(left%60);
+  c.textContent=`Reprise dans ${h} h ${String(mn).padStart(2,"0")}`;
+}
+
+/* ================= Image de souvenir générée ================= */
+function paintMemory(cv,seed){
+  const w=380,h=285; cv.width=w; cv.height=h; const g=cv.getContext("2d"), r=rng(seed);
+  const hue=Math.floor(r()*360);
+  let grd=g.createLinearGradient(0,0,0,h); grd.addColorStop(0,`hsl(${hue} 45% 70%)`); grd.addColorStop(1,`hsl(${(hue+40)%360} 40% 45%)`);
+  g.fillStyle=grd; g.fillRect(0,0,w,h);
+  g.fillStyle=`hsla(${(hue+180)%360} 80% 88% / .9)`; g.beginPath(); g.arc(60+r()*260,50+r()*40,22,0,7); g.fill();
+  for(let l=0;l<3;l++){ g.fillStyle=`hsl(${(hue+90+l*20)%360} ${30+l*8}% ${40-l*10}%)`; g.beginPath(); g.moveTo(0,h);
+    const fr=40+r()*30; for(let x=0;x<=w;x+=12) g.lineTo(x,h*(.5+l*.15)-Math.sin(x/fr+l)*18*(3-l)); g.lineTo(w,h); g.fill(); }
+  g.fillStyle="rgba(255,240,200,.12)"; g.fillRect(0,0,w,h);
+  const v=g.createRadialGradient(w/2,h/2,h*.3,w/2,h/2,h*.85); v.addColorStop(0,"rgba(0,0,0,0)"); v.addColorStop(1,"rgba(40,25,10,.55)"); g.fillStyle=v; g.fillRect(0,0,w,h);
+}
+const seedOf=id=>{ let s=0; for(const ch of String(id)) s=(s*31+ch.charCodeAt(0))%100000; return s+1; };
+
+/* ================= Rendu ================= */
+function listOf(c){
+  const items=quests.filter(q=>q.cat===c).sort((a,b)=>(a.created||0)-(b.created||0));
+  if(c==="mem") return items;
+  return items.filter(q=>!q.done).concat(items.filter(q=>q.done));
+}
+function memNo(q){ return quests.filter(x=>x.cat==="mem").sort((a,b)=>(a.created||0)-(b.created||0)).findIndex(x=>x.id===q.id)+1; }
+function current(){ const items=listOf(cat); let q=items.find(x=>x.id===selId[cat]); if(!q&&items.length){ q=items[0]; selId[cat]=q.id; } return q||null; }
+function renderAll(){ renderTabs(); renderList(); renderPanel(); renderTracked(); renderCapital(); }
+function renderTabs(){
+  const t=$("#tabs"); t.querySelectorAll(".tab").forEach(b=>b.remove());
+  CATS.forEach(c=>{
+    const b=document.createElement("button"); b.className="tab"; b.setAttribute("role","tab");
+    b.setAttribute("aria-selected",c.id===cat); b.setAttribute("aria-label",c.label); b.innerHTML=ICON[c.id];
+    b.onclick=()=>setCat(c.id,true); t.insertBefore(b,$("#tab-mark"));
+  });
+  $("#cat-label").textContent=catOf(cat).label;
+  $("#wm").innerHTML=ICON[cat];
+  requestAnimationFrame(()=>{ const a=t.querySelector('[aria-selected="true"]'); if(a) $("#tab-mark").style.left=(a.offsetLeft+a.offsetWidth/2-9)+"px"; });
+}
+function renderList(){
+  const L=$("#list"), items=listOf(cat);
+  L.innerHTML="";
+  if(!ready){ L.innerHTML=`<li class="empty">Ouverture du journal…</li>`; placeFrame(); return; }
+  if(!items.length){
+    const li=document.createElement("li"); li.className="empty";
+    li.textContent = cat==="mem" ? "Aucun souvenir pour l'instant. Garde ici les beaux moments : appuie sur N ou sur « Nouvelle quête » et choisis « Souvenir »." : `Aucune ${catOf(cat).one.toLowerCase()} en cours. Appuie sur N ou sur « Nouvelle quête » pour en inscrire une.`;
+    L.appendChild(li); placeFrame(); return;
+  }
+  items.forEach((q,i)=>{
+    const li=document.createElement("li"); li.className="row"+(q.done?" done":""); li.style.animationDelay=(i*25)+"ms"; li.dataset.id=q.id;
+    li.innerHTML=`<span class="plate">${ICON[q.cat]}</span><span class="t"><div class="name"></div><div class="sub"></div></span>${settings.followed===q.id&&!q.done?TRACK:""}`;
+    li.querySelector(".name").textContent=q.title;
+    const sub=li.querySelector(".sub"); sub.textContent = q.cat==="mem" ? `Souvenir retrouvé n°${memNo(q)}` : (q.place||"Lieu inconnu");
+    if(q.example){ const ex=document.createElement("span"); ex.className="ex"; ex.textContent="exemple"; sub.appendChild(ex); }
+    li.onclick=()=>select(q.id,true);
+    L.appendChild(li);
+  });
+  current(); placeFrame();
+}
+function placeFrame(){
+  const f=$("#sel-frame"), row=$("#list").querySelector(`.row[data-id="${CSS.escape(selId[cat]||"")}"]`);
+  if(!row){ f.hidden=true; updateScroll(); return; }
+  f.hidden=false; f.style.top=(row.offsetTop-2)+"px"; f.style.height=(row.offsetHeight+4)+"px";
+  row.scrollIntoView({block:"nearest"}); updateScroll();
+}
+function updateScroll(){
+  const w=$("#list-wrap"), s=$("#scroll"), th=$("#thumb");
+  if(w.scrollHeight<=w.clientHeight+2){ s.hidden=true; return; }
+  s.hidden=false; const track=s.clientHeight-16, ratio=w.clientHeight/w.scrollHeight, hgt=Math.max(18,track*ratio);
+  th.style.height=hgt+"px"; th.style.top=(8+(track-hgt)*(w.scrollTop/(w.scrollHeight-w.clientHeight)))+"px";
+}
+$("#list-wrap").addEventListener("scroll",updateScroll,{passive:true});
+
+let typer=null;
+function typeDesc(el,text){
+  clearInterval(typer); el.innerHTML="";
+  const spans=[];
+  String(text||"").split(/\n\s*\n/).forEach(par=>{
+    const p=document.createElement("p");
+    par.split(/(\*\*.+?\*\*)/).forEach(seg=>{ if(!seg) return; const s=document.createElement("span"); const red=/^\*\*.+\*\*$/.test(seg); if(red) s.className="k"; s.dataset.full=red?seg.slice(2,-2):seg; p.appendChild(s); spans.push(s); });
+    el.appendChild(p);
+  });
+  if(reduce||!spans.length){ spans.forEach(s=>s.textContent=s.dataset.full); return; }
+  const caret=document.createElement("span"); caret.className="caret"; let si=0,ci=0,n=0;
+  typer=setInterval(()=>{
+    for(let k=0;k<2;k++){
+      if(si>=spans.length){ clearInterval(typer); caret.remove(); return; }
+      const s=spans[si], full=s.dataset.full; ci++; s.textContent=full.slice(0,ci); s.after(caret);
+      if(ci>=full.length){ si++; ci=0; }
+    }
+    if(++n%3===0) SFX.type();
+  },16);
+}
+function renderPanel(){
+  const P=$("#panel-in"), q=current(), c=catOf(cat), items=listOf(cat);
+  P.innerHTML="";
+  if(!ready){ P.innerHTML=`<h2>Le journal s'ouvre…</h2>`; renderHints(null); return; }
+  if(!q){
+    P.innerHTML=`<h2></h2><div class="desc"><p></p></div>`;
+    P.querySelector("h2").textContent = cat==="mem"?"Aucun souvenir":"Aucune quête";
+    P.querySelector("p").textContent = cat==="mem" ? "Les souvenirs gardent la trace de tes beaux moments, avec une image si tu veux." : "Inscris une tâche ici : l'IA peut la raconter comme une véritable quête.";
+    renderHints(null); return;
+  }
+  const isMem=q.cat==="mem", doneCount=items.filter(x=>x.done).length, showStamp=q.done&&!(fxActive&&pendingStamp===q.id);
+  P.innerHTML=`
+    ${isMem?(q.image?`<img class="memimg" alt="">`:`<canvas class="memimg" aria-hidden="true"></canvas>`):""}
+    <h2></h2>
+    <div class="meta"><span class="giver">${isMem?"":BANG}<span class="gv"></span></span><span class="place ${q.cat==="side"?"alt":""}">${PIN}<span class="pv"></span></span></div>
+    <div class="desc"></div>
+    <div class="panel-foot">
+      ${showStamp?`<div class="stamp-wrap ${freshStamp===q.id?"fresh":""}"><span class="dust"></span><div class="stamp">Accomplie</div></div>`:""}
+      <div class="counter">${ICON[q.cat]}<span>${isMem?`${c.count} : ${items.length}`:`${c.count} : ${doneCount}/${items.length}`}</span></div>
+    </div>`;
+  P.querySelector("h2").textContent=q.title;
+  P.querySelector(".gv").textContent=isMem?`Souvenir retrouvé n°${memNo(q)}`:(q.giver||"Inconnu");
+  P.querySelector(".pv").textContent=q.place||"Lieu inconnu";
+  if(isMem){
+    const im=P.querySelector(".memimg");
+    if(q.image){ Files.url(q.image).then(u=>{ if(u) im.src=u; else if(im.onerror) im.onerror(); }); im.onerror=()=>{ const cv=document.createElement("canvas"); cv.className="memimg"; im.replaceWith(cv); paintMemory(cv,seedOf(q.id)); }; }
+    else paintMemory(im,seedOf(q.id));
+  }
+  typeDesc(P.querySelector(".desc"),q.desc||"");
+  if(freshStamp===q.id&&showStamp){ SFX.stamp(); freshStamp=null; }
+  renderHints(q);
+}
+function hint(k,label,fn,cls){ const b=document.createElement("button"); b.className="hint"+(cls?" "+cls:""); b.innerHTML=`<span class="k"></span><span></span>`; b.firstChild.textContent=k; b.lastChild.textContent=label; b.onclick=fn; return b; }
+function renderHints(q){
+  const H=$("#hints"); H.innerHTML="";
+  if(!q) return;
+  if(q.cat!=="mem"){
+    if(!q.done) H.appendChild(hint("⏎",settings.followed===q.id?"Ne plus suivre":"Suivre",()=>toggleFollow(q)));
+    H.appendChild(hint("A",q.done?"Rouvrir":"Accomplir",()=>toggleDone(q)));
+  }
+  H.appendChild(hint("E","Modifier",()=>openForm(q)));
+  H.appendChild(hint("Suppr","Effacer",()=>askDelete(q),"danger"));
+}
+function renderTracked(){
+  const b=$("#tracked"), q=quests.find(x=>x.id===settings.followed&&!x.done);
+  if(!q){ b.hidden=true; return; }
+  b.hidden=false; b.innerHTML=TRACK+`<span><span class="tl">Quête suivie</span><span class="tn"></span></span>`;
+  b.querySelector(".tn").textContent=q.title;
+  b.onclick=()=>{ if(cat!==q.cat) setCat(q.cat,true); select(q.id,true); };
+}
+function select(id,sound){ if(id===selId[cat]){ return; } selId[cat]=id; if(sound) SFX.move(); placeFrame(); renderPanel(); }
+function step(d){ const items=listOf(cat); if(!items.length) return; let i=items.findIndex(x=>x.id===selId[cat]); i=(i+d+items.length)%items.length; select(items[i].id,true); }
+function setCat(c,sound){ if(c===cat) return; cat=c; local.set("tab",c); if(sound) SFX.tab(); renderTabs(); renderList(); renderPanel(); }
+function toggleFollow(q){
+  const on=settings.followed!==q.id; SFX.move();
+  Store.putSettings({followed:on?q.id:null}).then(()=>{}); renderList(); renderPanel();
+  toast(on?`Quête suivie : ${q.title}`:"Plus aucune quête suivie");
+}
+function toggleDone(q){
+  if(q.done){ const nq=Object.assign({},q,{done:false,doneAt:null}); Store.putQuest(nq); return; }
+  const nq=Object.assign({},q,{done:true,doneAt:Date.now()});
+  if(settings.followed===q.id) Store.putSettings({followed:null});
+  pendingStamp=q.id; fxActive=true;
+  const items=listOf(q.cat), after=items.filter(x=>x.done||x.id===q.id).length;
+  celebrate(q.title,q.cat,`${catOf(q.cat).count} : ${after}/${items.length}`,()=>{ fxActive=false; freshStamp=q.id; pendingStamp=null; renderList(); renderPanel(); });
+  Store.putQuest(nq);
+}
+
+/* ================= Effet « Quête accomplie » ================= */
+function celebrate(title,catId,stat,onEnd){
+  const app=$("#app"), o=document.createElement("div"); o.className="fx"; o.setAttribute("role","status");
+  const word="Quête accomplie";
+  const letters=[...word].map((ch,i)=>`<span style="animation-delay:${(.72+i*.045).toFixed(3)}s">${ch===" "?"&nbsp;":ch}</span>`).join("");
+  o.innerHTML=`<div class="fx-dim"></div><canvas></canvas><div class="fx-flash"></div>
+    <div class="fx-stage"><div class="fx-band"></div><div class="fx-line top"></div><div class="fx-line bot"></div>
+      <div class="fx-content">
+        <div class="fx-emblem"><div class="fx-rays"></div><div class="fx-wave"></div><div class="fx-wave w2"></div><div class="fx-ring"></div><div class="fx-ring r2"></div><div class="fx-icon">${ICON[catId]}</div></div>
+        <div class="fx-title" aria-label="${word}">${letters}<div class="fx-sweep"></div></div>
+        <div class="fx-name"></div><div class="fx-stat"></div>
+      </div></div>
+    <div class="fx-skip">Cliquer pour passer</div>`;
+  o.querySelector(".fx-name").textContent=title; o.querySelector(".fx-stat").textContent=stat;
+  document.body.appendChild(o); app.classList.add("fx-on"); SFX.fanfare();
+  const shakeT=setTimeout(()=>{ app.classList.remove("shake"); void app.offsetWidth; app.classList.add("shake"); },620);
+  // Particules
+  const cv=o.querySelector("canvas"), dpr=Math.min(devicePixelRatio||1,2); cv.width=innerWidth*dpr; cv.height=innerHeight*dpr;
+  const g=cv.getContext("2d"); g.scale(dpr,dpr);
+  const cx=innerWidth/2, cy=innerHeight/2-34, P=[]; let raf=0, t0=performance.now(), burst=false, ended=false;
+  const add=(x,y,vx,vy,life,size,kind)=>P.push({x,y,vx,vy,life,age:0,size,kind,tw:Math.random()*6});
+  function tick(now){
+    const t=(now-t0)/1000; raf=requestAnimationFrame(tick);
+    if(!burst&&t>.62){ burst=true;
+      for(let i=0;i<190;i++){ const a=Math.random()*Math.PI*2, sp=2+Math.random()*9; add(cx,cy,Math.cos(a)*sp,Math.sin(a)*sp*.62,1.1+Math.random()*1.5,1+Math.random()*2.4,Math.random()<.12?"star":"dot"); }
+    }
+    if(t>.8&&t<3.6){ for(let i=0;i<3;i++) add(cx+(Math.random()-.5)*Math.min(innerWidth*.8,900),cy+110,(Math.random()-.5)*.4,-(.6+Math.random()*1.4),1.6+Math.random()*1.2,.8+Math.random()*1.6,"ember"); }
+    g.clearRect(0,0,innerWidth,innerHeight);
+    for(let i=P.length-1;i>=0;i--){
+      const p=P[i]; p.age+=1/60; if(p.age>p.life){ P.splice(i,1); continue; }
+      if(p.kind!=="ember"){ p.vx*=.955; p.vy=p.vy*.955+.035; } else { p.vx+=Math.sin(p.age*3+p.tw)*.02; }
+      p.x+=p.vx; p.y+=p.vy;
+      const k=1-p.age/p.life, a=k*(.55+.45*Math.sin(p.age*14+p.tw));
+      g.globalAlpha=Math.max(0,a);
+      if(p.kind==="star"){ const s=p.size*3.2; g.fillStyle="#fff8dc"; g.beginPath(); g.moveTo(p.x,p.y-s); g.lineTo(p.x+s*.25,p.y); g.lineTo(p.x,p.y+s); g.lineTo(p.x-s*.25,p.y); g.closePath(); g.fill(); g.beginPath(); g.moveTo(p.x-s,p.y); g.lineTo(p.x,p.y+s*.25); g.lineTo(p.x+s,p.y); g.lineTo(p.x,p.y-s*.25); g.closePath(); g.fill(); }
+      else { g.fillStyle=p.kind==="ember"?"#f3d27a":(Math.random()<.5?"#fff3c4":"#e8c766"); g.shadowColor="#f6e6ad"; g.shadowBlur=6; g.beginPath(); g.arc(p.x,p.y,p.size,0,7); g.fill(); g.shadowBlur=0; }
+    }
+    g.globalAlpha=1;
+    if(t>4.6) end();
+  }
+  if(!reduce) raf=requestAnimationFrame(tick);
+  function end(){
+    if(ended) return; ended=true; cancelAnimationFrame(raf); clearTimeout(shakeT); clearTimeout(endT);
+    o.classList.add("leaving"); app.classList.remove("fx-on","shake");
+    setTimeout(()=>o.remove(),300); onEnd&&onEnd();
+  }
+  const endT=setTimeout(end,reduce?1500:4600);
+  o.addEventListener("click",end);
+}
+
+/* ================= Toast ================= */
+let toastT=null;
+function toast(msg){ document.querySelectorAll(".toast").forEach(t=>t.remove()); clearTimeout(toastT); const t=document.createElement("div"); t.className="toast"; t.setAttribute("role","status"); t.textContent=msg; document.body.appendChild(t); toastT=setTimeout(()=>t.remove(),2800); }
+
+/* ================= Capital ================= */
+const fmtNum=n=>Number(n).toLocaleString("fr-FR",{maximumFractionDigits:2});
+function renderCapital(){ const v=$("#capital-val"); if(v) v.textContent=ready?fmtNum(settings.capital||0):"…"; }
+$("#capital").addEventListener("click",e=>{
+  if(e.target.tagName==="INPUT"||!ready) return;
+  const span=$("#capital-val"), inp=document.createElement("input");
+  inp.type="number"; inp.id="capital-input"; inp.value=settings.capital||0; inp.step="any"; inp.setAttribute("aria-label","Nouveau capital");
+  span.replaceWith(inp); inp.focus(); inp.select(); let closed=false;
+  const done=save=>{ if(closed) return; closed=true;
+    const v=+inp.value; const s=document.createElement("span"); s.id="capital-val"; inp.replaceWith(s);
+    if(save&&inp.value!==""&&isFinite(v)&&v!==settings.capital){ SFX.save(); Store.putSettings({capital:v}); } else renderCapital(); };
+  inp.addEventListener("keydown",ev=>{ ev.stopPropagation(); if(ev.key==="Enter"){ev.preventDefault();done(true)} if(ev.key==="Escape") done(false); });
+  inp.addEventListener("blur",()=>done(true));
+});
+
+/* ================= Fenêtres ================= */
+let openModal=null;
+function showModal(id){ if(openModal) $(openModal).hidden=true; openModal=id; $(id).hidden=false; SFX.open(); }
+function hideModal(){ if(openModal){ $(openModal).hidden=true; openModal=null; } if(document.activeElement&&document.activeElement!==document.body) document.activeElement.blur(); }
+
+/* --- Formulaire de quête --- */
+let form=null, aiCtl=null;
+function openForm(q){
+  const isNew=!q;
+  form={id:q?q.id:null, cat:q?q.cat:cat, image:q?q.image||null:null, origImage:q?q.image||null:null, uploaded:[]};
+  $("#qf-h").textContent=isNew?"Nouvelle quête":"Modifier la quête";
+  $("#qf-name").value=q?q.title:""; $("#qf-place").value=q?q.place||"":""; $("#qf-giver").value=q?q.giver||"":(isNew?"Moi":"");
+  $("#qf-note").value=q?q.note||"":""; $("#qf-desc").value=q?q.desc||"":"";
+  $("#qf-err").textContent=""; $("#qf-ai-msg").textContent=""; $("#qf-img-msg").textContent=""; $("#qf-img").value="";
+  $("#qf-save").lastChild.textContent=isNew?"Inscrire au journal":"Enregistrer";
+  renderCatPick(); renderImgPick();
+  if(!aiCfg.key) $("#qf-ai-msg").textContent="Pour rédiger avec Gemini, ajoute ta clé dans Réglages (touche R).";
+  showModal("#m-form"); setTimeout(()=>$("#qf-name").focus(),30);
+}
+function renderCatPick(){
+  const box=$("#qf-cat"); box.innerHTML="";
+  CATS.forEach(c=>{ const b=document.createElement("button"); b.type="button"; b.setAttribute("role","radio"); b.setAttribute("aria-checked",form.cat===c.id); b.innerHTML=ICON[c.id]+`<span></span>`; b.lastChild.textContent=c.one;
+    b.onclick=()=>{ form.cat=c.id; renderCatPick(); renderImgPick(); }; box.appendChild(b); });
+  const mem=form.cat==="mem";
+  $("#qf-giver-f").hidden=mem;
+  $("#qf-note-l").textContent=mem?"Ce qui s'est passé, en quelques mots":"Ce qu'il faut faire, en quelques mots";
+  $("#qf-note").placeholder=mem?"Ex. : pique-nique au sommet avec Léa, vent fort, vue magnifique":"Ex. : récupérer le colis au guichet avant samedi midi";
+}
+function renderImgPick(){
+  const mem=form.cat==="mem"; $("#qf-img-f").hidden=!mem; if(!mem) return;
+  const prev=$("#qf-img-prev");
+  if(form.image){ const id=form.image; Files.url(id).then(u=>{ if(u&&form&&form.image===id) prev.src=u; }); prev.hidden=false; $("#qf-img-rm").hidden=false; } else { prev.hidden=true; $("#qf-img-rm").hidden=true; }
+  $("#qf-img").disabled=Store.mode!=="idb";
+  if(!form.image&&!$("#qf-img-msg").textContent) $("#qf-img-msg").textContent="Sans image, un paysage est peint pour toi.";
+}
+const IMG_TYPES=["image/png","image/jpeg","image/webp","image/gif"];
+$("#qf-img").addEventListener("change",async e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f||Store.mode!=="idb") return;
+  const msg=$("#qf-img-msg");
+  if(!IMG_TYPES.includes(f.type)){ msg.textContent="Choisis une image PNG, JPEG, WebP ou GIF."; return; }
+  if(f.size>60*1024*1024){ msg.textContent="Image trop lourde : 60 Mo au maximum."; return; }
+  msg.textContent="Enregistrement de l'image…";
+  try{ const id=await Files.add(f); form.uploaded.push(id); form.image=id; msg.textContent="Image ajoutée."; renderImgPick(); }
+  catch(err){ msg.textContent="L'image n'a pas pu être enregistrée : l'espace de stockage est peut-être plein."; }
+});
+$("#qf-img-rm").onclick=()=>{ form.image=null; renderImgPick(); };
+function cleanupUploads(keep){ if(!form) return; form.uploaded.filter(id=>id!==keep).forEach(id=>Files.del(id)); }
+
+$("#qf-ai").onclick=async ()=>{
+  if(!aiCfg.key){ $("#qf-ai-msg").textContent=aiMsg({code:"no_key"}); return; }
+  const title=$("#qf-name").value.trim(), place=$("#qf-place").value.trim(), giver=$("#qf-giver").value.trim(), note=$("#qf-note").value.trim();
+  if(!title&&!note){ $("#qf-ai-msg").textContent="Écris au moins un titre ou quelques mots sur la tâche."; return; }
+  const mem=form.cat==="mem";
+  const prompt=[
+    "Tu écris une entrée du journal de quêtes d'une personne, dans le style d'un grand jeu d'aventure fantastique : ton épique mais sobre, phrases courtes et imagées, tutoiement.",
+    mem ? "C'est un SOUVENIR : raconte-le au passé, avec un ton chaleureux et un peu nostalgique, en un seul paragraphe de 35 à 60 mots."
+        : "C'est une tâche réelle à accomplir. Raconte-la comme une quête, en 2 paragraphes courts (50 à 80 mots au total). Le premier pose la situation, le second dit clairement ce qu'il reste à faire.",
+    "Règles : garde tous les faits donnés (lieux, personnes, dates, objets) et n'invente aucune obligation, date ou personne nouvelle. Entoure 1 à 3 mots-clés importants (lieu, objet, échéance) de doubles astérisques, par exemple **guichet n°2**. Pas de titre, pas de liste, pas d'emoji, pas de guillemets autour du texte. Sépare les paragraphes par une ligne vide. Réponds uniquement par le texte de l'entrée, en français.",
+    "",
+    `Catégorie : ${catOf(form.cat).one}`,
+    `Titre : ${title||"(aucun)"}`,
+    `Lieu : ${place||"(non précisé)"}`,
+    mem?"":`Donneur de quête : ${giver||"(non précisé)"}`,
+    `Notes : ${note||"(aucune)"}`
+  ].join("\n");
+  const ta=$("#qf-desc"), before=ta.value, btn=$("#qf-ai"), stop=$("#qf-stop"), msg=$("#qf-ai-msg");
+  aiCtl=new AbortController(); btn.disabled=true; stop.hidden=false; msg.textContent="Gemini réfléchit…";
+  try{
+    const text=await gemini(prompt,{signal:aiCtl.signal,onText:t=>{ ta.value=t; msg.textContent="Rédaction en cours…"; }});
+    ta.value=text.trim(); msg.textContent="C'est rédigé. Tu peux corriger le texte librement."; SFX.save();
+  }catch(e){
+    const c=e&&e.code;
+    if(c==="cancelled"){ ta.value=e.text||before; msg.textContent="Rédaction arrêtée."; }
+    else { ta.value=before; msg.textContent=aiMsg(e); }
+  }finally{ btn.disabled=false; stop.hidden=true; aiCtl=null; }
+};
+$("#qf-stop").onclick=()=>aiCtl&&aiCtl.abort();
+$("#qform").addEventListener("submit",e=>{
+  e.preventDefault();
+  const title=$("#qf-name").value.trim();
+  if(!title){ $("#qf-err").textContent="Donne un titre à ta quête."; $("#qf-name").focus(); return; }
+  const old=form.id?quests.find(x=>x.id===form.id):null;
+  const q=Object.assign({},old||{},{
+    id:form.id||newId(), cat:form.cat, title, place:$("#qf-place").value.trim(), giver:form.cat==="mem"?"":$("#qf-giver").value.trim(),
+    note:$("#qf-note").value.trim(), desc:$("#qf-desc").value.trim(), created:old?old.created:Date.now(), done:old?!!old.done:false
+  });
+  if(form.cat==="mem"){ q.image=form.image||null; q.done=false; } else delete q.image;
+  delete q.example;
+  cleanupUploads(q.image);
+  if(aiCtl) aiCtl.abort();
+  Store.putQuest(q); SFX.save(); hideModal();
+  if(cat!==q.cat) setCat(q.cat,false);
+  selId[q.cat]=q.id; renderAll(); toast(old?"Quête modifiée.":"Nouvelle quête inscrite au journal.");
+});
+$("#qf-cancel").onclick=()=>{ if(aiCtl) aiCtl.abort(); cleanupUploads(null); hideModal(); };
+
+/* --- Confirmation --- */
+let confirmFn=null;
+function askConfirm(title,text,yes,fn){ confirmFn=fn; $("#cf-h").textContent=title; $("#cf-p").textContent=text; $("#cf-yes-l").textContent=yes; showModal("#m-confirm"); setTimeout(()=>$("#cf-no").focus(),30); }
+function askDelete(q){
+  askConfirm(q.cat==="mem"?"Effacer ce souvenir ?":"Effacer cette quête ?",`« ${q.title} » sera retiré du journal. Tu pourras le retrouver dans l'historique des sauvegardes (Réglages).`,"Effacer",async ()=>{
+    await Backup.point(`avant d'effacer « ${q.title.slice(0,40)} »`);
+    if(settings.followed===q.id) Store.putSettings({followed:null});
+    const items=listOf(q.cat), i=items.findIndex(x=>x.id===q.id), nxt=items[i+1]||items[i-1];
+    selId[q.cat]=nxt?nxt.id:null;
+    Store.removeQuest(q.id); renderAll(); toast("Effacé du journal.");
+  });
+}
+$("#cf-no").onclick=()=>{ confirmFn=null; hideModal(); };
+$("#cf-yes").onclick=()=>{ const f=confirmFn; confirmFn=null; hideModal(); if(f) f(); };
+
+/* --- Réglages --- */
+function renderSettings(){
+  const box=$("#walls"); box.innerHTML="";
+  const w=settings.wall||{kind:"lake"};
+  Object.keys(SCENES).forEach(k=>{
+    const b=document.createElement("button"); b.className="wallcard"; b.setAttribute("role","radio"); b.setAttribute("aria-checked",w.kind===k);
+    const cv=document.createElement("canvas"); b.appendChild(cv); const sp=document.createElement("span"); sp.textContent=SCENES[k].label; b.appendChild(sp);
+    const s=SCENES[k].build(320,180); cv.width=320; cv.height=180; SCENES[k].draw(cv.getContext("2d"),s,1);
+    b.onclick=()=>{ if(w.kind!==k){ SFX.move(); Store.putSettings({wall:Object.assign({},settings.wall,{kind:k})}); } };
+    box.appendChild(b);
+  });
+  const own=settings.wall&&settings.wall.file;
+  const b=document.createElement("button"); b.className="wallcard"; b.setAttribute("role","radio"); b.setAttribute("aria-checked",w.kind==="custom");
+  if(own){ const el=document.createElement(settings.wall.media==="video"?"video":"img"); if(el.tagName==="VIDEO"){ el.muted=true; el.setAttribute("muted",""); el.preload="metadata"; } el.alt=""; b.appendChild(el); Files.url(own).then(u=>{ if(u) el.src=u; }); }
+  else { const ph=document.createElement("div"); ph.className="ph"; ph.textContent="Aucun fichier importé"; b.appendChild(ph); }
+  const sp=document.createElement("span"); sp.textContent="Mon image ou ma vidéo"; b.appendChild(sp);
+  b.onclick=()=>{ if(own){ if(w.kind!=="custom"){ SFX.move(); Store.putSettings({wall:Object.assign({},settings.wall,{kind:"custom"})}); } } else $("#wall-file").click(); };
+  box.appendChild(b);
+  $("#wall-file-btn").hidden=Store.mode!=="idb";
+  $("#wall-blur").value=settings.blur??6; $("#wall-blur-v").textContent=(settings.blur??6)+" px";
+  $("#wall-dim").value=settings.dim??35; $("#wall-dim-v").textContent=(settings.dim??35)+" %";
+  $("#snd").checked=soundOn();
+  if(document.activeElement!==$("#ai-key")) $("#ai-key").value=aiCfg.key||"";
+  if(document.activeElement!==$("#ai-model")) $("#ai-model").value=aiCfg.model||"gemini-flash-latest";
+  const sm=$("#save-mode");
+  sm.textContent = Store.mode==="idb"
+    ? `Chaque modification est enregistrée dans ce navigateur, sur cet ordinateur, dès que tu la fais. Protection contre le nettoyage automatique du navigateur : ${persisted?"activée":"pas encore accordée (installer le site comme application aide à l'obtenir)"}.`
+    : "Ce navigateur bloque la sauvegarde : tes changements seront perdus en fermant la page.";
+  if(navigator.storage&&navigator.storage.estimate) navigator.storage.estimate().then(e=>{ if(e&&e.usage!=null) sm.textContent+=` Espace utilisé : ${(e.usage/1048576).toFixed(1)} Mo.`; }).catch(()=>{});
+  const d=$("#diskbox"); d.innerHTML="";
+  const line=(t,cls)=>{ const p=document.createElement("span"); p.className="msg"+(cls?" "+cls:""); p.textContent=t; d.appendChild(p); return p; };
+  const row=document.createElement("div"); row.className="row";
+  const btn=(t,fn,ghost)=>{ const x=document.createElement("button"); x.className="btn"+(ghost?" ghost":""); x.textContent=t; x.onclick=fn; row.appendChild(x); };
+  if(!Disk.ok) line("La sauvegarde automatique dans un dossier demande Chrome ou Edge sur ordinateur. Pense à télécharger une copie de temps en temps.");
+  else if(Disk.state==="none"){
+    line("Sauvegarde automatique dans un dossier : pas encore activée.");
+    line("Choisis un dossier, par exemple « Documents/Journal d'aventure ». Le journal y sera recopié tout seul à chaque modification, avec tes images, ton fond d'écran et une copie par jour.");
+    btn("Choisir le dossier",()=>Disk.choose());
+  } else if(Disk.state==="ask"){
+    line(`Dossier « ${Disk.handle.name} » : le navigateur demande à nouveau ta permission pour y écrire.`,"err");
+    btn("Reconnecter le dossier",()=>Disk.reconnect()); btn("Changer de dossier",()=>Disk.choose(),true);
+  } else {
+    line(`Dossier « ${Disk.handle.name} » : sauvegarde automatique active${Disk.lastWrite?", dernière copie à "+hm(Disk.lastWrite):""}.`,"ok");
+    btn("Copier maintenant",()=>Disk.write(),true); btn("Changer de dossier",()=>Disk.choose(),true); btn("Arrêter",()=>Disk.forget(),true);
+  }
+  if(row.children.length) d.appendChild(row);
+  $("#imp-dir").hidden=!Disk.ok;
+  const nEx=quests.filter(q=>q.example).length; $("#rm-examples").disabled=!nEx; $("#rm-msg").textContent=nEx?`${nEx} quête${nEx>1?"s":""} d'exemple dans le journal.`:"Aucune quête d'exemple.";
+}
+$("#open-settings").onclick=()=>{ renderSettings(); renderBackups(); showModal("#m-set"); };
+$("#set-close").onclick=hideModal;
+/* IA */
+$("#ai-show").onclick=()=>{ const i=$("#ai-key"), show=i.type==="password"; i.type=show?"text":"password"; $("#ai-show").textContent=show?"Masquer":"Afficher"; };
+async function storeAi(){ aiCfg.key=$("#ai-key").value.trim(); aiCfg.model=($("#ai-model").value.trim()||"gemini-flash-latest").replace(/^models\//,""); await saveAiCfg(); }
+$("#ai-save").onclick=async ()=>{ await storeAi(); $("#ai-msg").textContent=aiCfg.key?"Clé enregistrée sur cet ordinateur.":"Clé effacée."; SFX.save(); };
+$("#ai-test").onclick=async ()=>{
+  await storeAi(); const m=$("#ai-msg"); m.className="msg"; m.textContent="Test en cours…";
+  try{ const t=await gemini("Réponds uniquement par le mot : OK"); m.textContent=`La clé fonctionne avec le modèle « ${aiCfg.model} ».`; SFX.save(); }
+  catch(e){ m.className="msg err"; m.textContent=aiMsg(e); }
+};
+$("#ai-list").onclick=async ()=>{
+  await storeAi(); const m=$("#ai-msg"); m.className="msg";
+  if(!aiCfg.key){ m.textContent=aiMsg({code:"no_key"}); return; }
+  m.textContent="Lecture de la liste…";
+  try{
+    const r=await fetch("https://generativelanguage.googleapis.com/v1beta/models?pageSize=200",{headers:{"x-goog-api-key":aiCfg.key}});
+    if(!r.ok) throw aiError(r.status===400?"bad_key":(r.status===401||r.status===403)?"denied":"upstream");
+    const j=await r.json(), list=(j.models||[]).filter(x=>(x.supportedGenerationMethods||[]).includes("generateContent")&&/gemini/i.test(x.name||""));
+    const dl=$("#ai-models"); dl.innerHTML="";
+    list.forEach(x=>{ const o=document.createElement("option"); o.value=String(x.name).replace(/^models\//,""); o.label=x.displayName||o.value; dl.appendChild(o); });
+    m.textContent=`${list.length} modèles disponibles : clique dans le champ « Modèle » pour choisir.`;
+  }catch(e){ m.className="msg err"; m.textContent=e.code?aiMsg(e):aiMsg({code:"network"}); }
+};
+/* Sauvegardes */
+$("#exp-btn").onclick=exportFile;
+$("#imp-file").addEventListener("change",async e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  const msg=$("#exp-msg");
+  let raw; try{ raw=JSON.parse(await f.text()); }catch(err){ msg.textContent="Ce fichier n'est pas une copie du journal."; return; }
+  const snap=cleanSnapshot(raw);
+  if(!snap||raw.app!=="journal-aventure"){ msg.textContent="Ce fichier n'est pas une copie du journal."; return; }
+  const n=snap.quests.length, when=snap.at?new Date(snap.at).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}):"date inconnue";
+  askConfirm("Importer cette copie ?",`Ton journal sera remplacé par la copie du ${when} (${n} quête${n>1?"s":""}). Les images ne sont pas dans ce fichier : pour les récupérer, utilise « Restaurer depuis un dossier ». L'état actuel est gardé dans l'historique.`,"Importer",()=>restore(snap));
+});
+$("#imp-dir").onclick=async ()=>{
+  const msg=$("#exp-msg"); let h;
+  try{ h=await window.showDirectoryPicker({id:"journal-aventure-import",mode:"read",startIn:"documents"}); }catch(e){ return; }
+  let raw; try{ const fh=await h.getFileHandle("journal.json"); raw=JSON.parse(await (await fh.getFile()).text()); }catch(e){ msg.textContent="Ce dossier ne contient pas de fichier journal.json lisible."; return; }
+  const snap=cleanSnapshot(raw); if(!snap||raw.app!=="journal-aventure"){ msg.textContent="Le fichier journal.json de ce dossier n'est pas une copie du journal."; return; }
+  const n=snap.quests.length, nf=raw.files?Object.keys(raw.files).length:0, when=snap.at?new Date(snap.at).toLocaleDateString("fr-FR",{day:"numeric",month:"long",year:"numeric"}):"date inconnue";
+  askConfirm("Restaurer depuis ce dossier ?",`Ton journal sera remplacé par la sauvegarde du ${when} : ${n} quête${n>1?"s":""} et ${nf} fichier${nf>1?"s":""} (images, fond d'écran). L'état actuel est gardé dans l'historique.`,"Restaurer",async ()=>{ await importMedias(h,raw.files); await restore(snap); });
+};
+/* Fond d'écran */
+$("#wall-file").addEventListener("change",async e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f||Store.mode!=="idb") return;
+  const msg=$("#wall-msg"), okT=["image/png","image/jpeg","image/webp","image/gif","video/mp4","video/webm"];
+  if(!okT.includes(f.type)){ msg.textContent="Formats acceptés : PNG, JPEG, WebP, GIF, MP4 ou WebM."; return; }
+  msg.textContent="Enregistrement du fichier…";
+  try{
+    const id=await Files.add(f), prev=settings.wall&&settings.wall.file;
+    await Store.putSettings({wall:{kind:"custom",file:id,media:f.type.startsWith("video")?"video":"image"}});
+    if(prev&&prev!==id) Files.del(prev);
+    msg.textContent=`Fond d'écran importé (${(f.size/1048576).toFixed(1)} Mo).`; SFX.save(); renderSettings();
+  }catch(err){ msg.textContent="Le fichier n'a pas pu être enregistré : l'espace de stockage est peut-être plein."; }
+});
+$("#wall-blur").oninput=e=>{ document.documentElement.style.setProperty("--blur",e.target.value+"px"); $("#wall-blur-v").textContent=e.target.value+" px"; };
+$("#wall-blur").onchange=e=>Store.putSettings({blur:+e.target.value});
+$("#wall-dim").oninput=e=>{ document.documentElement.style.setProperty("--dimv",(e.target.value/100).toFixed(2)); $("#wall-dim-v").textContent=e.target.value+" %"; };
+$("#wall-dim").onchange=e=>Store.putSettings({dim:+e.target.value});
+$("#snd").onchange=e=>local.set("sound",e.target.checked);
+$("#sim").onchange=()=>{ $("#simh").disabled=!$("#sim").checked; stayAwake=false; renderHearts(); };
+$("#simh").oninput=()=>{ $("#simv").textContent=fmt(+$("#simh").value); renderHearts(); };
+$("#night-preview").onclick=()=>{ hideModal(); if(!document.getElementById("night")) showNight(true); };
+$("#fx-preview").onclick=()=>{ hideModal(); const q=current(); celebrate(q?q.title:"Le grand déménagement",q?q.cat:"main","Aperçu de l'animation",null); };
+$("#rm-examples").onclick=()=>{
+  const ex=quests.filter(q=>q.example); ex.forEach(q=>Store.removeQuest(q.id));
+  if(ex.some(q=>q.id===settings.followed)) Store.putSettings({followed:null});
+  renderAll(); renderSettings(); toast("Quêtes d'exemple effacées.");
+};
+$("#new-quest").onclick=()=>openForm(null);
+
+/* ================= Clavier ================= */
+addEventListener("keydown",e=>{
+  if(e.key==="Escape"&&openModal){ e.preventDefault(); if(openModal==="#m-form") $("#qf-cancel").click(); else hideModal(); return; }
+  if(openModal==="#m-confirm"&&(e.key==="Delete"||(e.key==="Enter"&&e.target.id!=="cf-no"))){ e.preventDefault(); $("#cf-yes").click(); return; }
+  const fxEl=document.querySelector(".fx"); if(fxEl&&(e.key==="Escape"||e.key==="Enter"||e.key===" ")){ e.preventDefault(); fxEl.click(); return; }
+  if(openModal||document.getElementById("night")||fxEl) return;
+  if(e.target.closest("input,textarea,select")) return;
+  if(e.ctrlKey||e.metaKey||e.altKey) return;
+  const ci=CATS.findIndex(c=>c.id===cat), q=current(), k=e.key.toLowerCase();
+  if(e.key==="ArrowDown"){ e.preventDefault(); step(1); }
+  else if(e.key==="ArrowUp"){ e.preventDefault(); step(-1); }
+  else if(e.key==="ArrowRight"){ e.preventDefault(); setCat(CATS[(ci+1)%3].id,true); }
+  else if(e.key==="ArrowLeft"){ e.preventDefault(); setCat(CATS[(ci+2)%3].id,true); }
+  else if(e.key==="Enter"&&!e.target.closest("button")){ if(q&&q.cat!=="mem"&&!q.done) toggleFollow(q); }
+  else if(k==="a"){ if(q&&q.cat!=="mem") toggleDone(q); }
+  else if(k==="e"){ if(q) openForm(q); }
+  else if(k==="n"){ e.preventDefault(); openForm(null); }
+  else if(k==="r"){ $("#open-settings").click(); }
+  else if(e.key==="Delete"){ if(q){ e.preventDefault(); askDelete(q); } }
+});
+
+/* ================= Démarrage ================= */
+applySettings(); renderAll(); renderHearts();
+setInterval(renderHearts,20000);
+addEventListener("resize",()=>{ placeFrame(); renderTabs(); });
+Store.init();
+document.addEventListener("visibilitychange",()=>{ if(document.hidden&&Disk.state==="ok"&&Disk.timer){ clearTimeout(Disk.timer); Disk.timer=0; Disk.write(); } });
+if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
+})();
+</script>
+</body>
+</html>
