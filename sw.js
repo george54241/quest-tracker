@@ -1,5 +1,5 @@
 /* Service worker : permet d'ouvrir le journal sans Internet. */
-const VERSION = "journal-v3";
+const VERSION = "journal-v4";
 const SHELL = [
   "./", "index.html", "manifest.webmanifest", "icons/icon.svg", "icons/icon-192.png", "icons/icon-512.png", "fonts/fonts.css",
   "fonts/MarcellusSC-400-latin.woff2", "fonts/MarcellusSC-400-latin-ext.woff2",

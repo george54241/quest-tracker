@@ -2,6 +2,10 @@
 
 Un planificateur de tâches présenté comme un journal de quêtes d'aventure : cœurs-horloge (6 h → 22 h), capital, quêtes principales et secondaires, souvenirs, fond d'écran animé ou personnel, et rédaction des quêtes par l'IA Gemini.
 
+## Étapes
+
+Chaque quête peut contenir une liste d'étapes (Modifier → « Étapes de la quête », ou « ✦ Proposer des étapes » avec Gemini). Quand la dernière étape est cochée, la quête s'accomplit toute seule. Si tu décoches une étape d'une quête accomplie, elle se rouvre.
+
 ## Où sont mes données ?
 
 - **Dans ton navigateur, sur ton ordinateur.** Rien n'est envoyé sur ce site ni sur GitHub.
@@ -23,6 +27,7 @@ Réglages → « Intelligence artificielle · Gemini » : colle ta clé, puis «
 | ← → | Changer de catégorie |
 | Entrée | Suivre la quête |
 | A | Accomplir / rouvrir |
+| 1 à 9 | Cocher ou décocher l'étape correspondante |
 | N | Nouvelle quête |
 | E | Modifier |
 | Suppr | Effacer |
