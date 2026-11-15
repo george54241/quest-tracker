@@ -2,6 +2,10 @@
 
 Un planificateur de tâches présenté comme un journal de quêtes d'aventure : cœurs-horloge (6 h → 22 h), capital, quêtes principales et secondaires, souvenirs, fond d'écran animé ou personnel, et rédaction des quêtes par l'IA Gemini.
 
+## Carte du jour
+
+Touche **M** (ou le bouton « Carte » à côté du titre) pour passer du journal à la carte. Ta journée y est un chemin de 6 h à 22 h : glisse une quête sur le chemin pour la placer, déplace un point pour changer l'heure, ajoute des créneaux libres (repas, rendez-vous, sport, pause). « ✦ Organiser ma journée » demande à Gemini une proposition que tu acceptes créneau par créneau. Les flèches ← → changent de jour.
+
 ## Étapes
 
 Chaque quête peut contenir une liste d'étapes (Modifier → « Étapes de la quête », ou « ✦ Proposer des étapes » avec Gemini). Quand la dernière étape est cochée, la quête s'accomplit toute seule. Si tu décoches une étape d'une quête accomplie, elle se rouvre.
@@ -32,6 +36,9 @@ Réglages → « Intelligence artificielle · Gemini » : colle ta clé, puis «
 | E | Modifier |
 | Suppr | Effacer |
 | R | Réglages |
+| M | Passer du journal à la carte |
+
+Sur la carte : ← → changer de jour, ↑ ↓ choisir un créneau, N ajouter, E modifier, A fait, Suppr retirer, T aujourd'hui, G organiser avec Gemini.
 
 ## Licences
 

@@ -33,6 +33,7 @@ img{max-width:100%}
   --row-b:rgba(14,16,20,.5);
   --heart:#ff3a4c;
   --frame:#fffbe6;
+  --cyan:#7fe3ff;
   --blur:6px;
   --dimv:.35;
   --f-ui:"Noto Sans","Segoe UI",system-ui,sans-serif;
@@ -286,6 +287,119 @@ main{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:30px;a
 .field .steps-edit input[type=checkbox]{flex:none;width:16px;height:16px;padding:0;margin:0;accent-color:var(--gold);background:none;border:0}
 .step-rm{background:none;border:0;color:var(--muted);font-size:20px;line-height:1;cursor:pointer;padding:2px 6px}
 .step-rm:hover,.step-rm:focus-visible{color:#ff9b8f;outline:none}
+/* ===== Écran Carte : planificateur de journée ===== */
+.view{display:flex;flex-direction:column;gap:14px;flex:1;min-width:0}
+.view.enter-l{animation:viewInL .42s cubic-bezier(.2,.8,.3,1) both}
+.view.enter-r{animation:viewInR .42s cubic-bezier(.2,.8,.3,1) both}
+@keyframes viewInL{from{opacity:0;transform:translateX(-60px);filter:blur(5px)}}
+@keyframes viewInR{from{opacity:0;transform:translateX(60px);filter:blur(5px)}}
+.slate-sweep{position:fixed;left:0;right:0;top:0;height:2px;z-index:16;pointer-events:none;background:linear-gradient(90deg,transparent,var(--cyan),transparent);box-shadow:0 0 22px 6px rgba(127,227,255,.55);animation:slateSweep .55s ease-in forwards}
+@keyframes slateSweep{from{top:0;opacity:1}to{top:100%;opacity:0}}
+body.map-on .veil{background:radial-gradient(ellipse at 50% 45%,rgba(4,18,32,calc(var(--dimv)*.8)),rgba(2,10,22,calc(var(--dimv) + .35)) 75%,rgba(0,4,12,calc(var(--dimv) + .5)))}
+body.map-on .screen-frame .e{box-shadow:0 0 8px rgba(127,227,255,.6)}
+.subtab .ic svg{width:18px;height:18px;display:block}
+.map-top{display:flex;justify-content:space-between;align-items:center;gap:12px 20px;flex-wrap:wrap}
+.daynav{display:flex;align-items:center;gap:12px}
+.kbtn{width:32px;height:32px;border-radius:50%;border:1px solid rgba(127,227,255,.5);background:rgba(4,14,24,.65);color:var(--cyan);cursor:pointer;font-size:13px;display:grid;place-items:center;font-style:normal;flex:none}
+.kbtn:hover,.kbtn:focus-visible{box-shadow:0 0 12px rgba(127,227,255,.65);outline:none}
+.dayname{display:flex;flex-direction:column;align-items:center;min-width:230px}
+.dayname .dl{font-size:18px;font-weight:800;text-shadow:0 2px 4px #000;text-transform:capitalize}
+.dayname .rel{font-size:11px;color:var(--cyan);font-weight:700;letter-spacing:.04em;min-height:1.3em}
+.dayname .today{background:none;border:0;border-bottom:1px dotted var(--cyan);color:var(--cyan);font-size:11px;font-weight:700;cursor:pointer;font-style:italic;padding:0}
+.map-actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn.cyan{border-color:var(--cyan);color:#d8f6ff;background:rgba(127,227,255,.1)}
+.btn.cyan:hover,.btn.cyan:focus-visible{background:rgba(127,227,255,.22)}
+.map-main{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,340px);gap:24px;align-items:start}
+.mapbox{position:relative;aspect-ratio:16/10;min-height:340px;border:2px solid rgba(127,227,255,.5);box-shadow:0 0 0 1px rgba(0,0,0,.7),0 0 28px rgba(60,180,255,.28),0 14px 50px rgba(0,0,0,.55);background:#26302a;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none}
+.mapbox canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.mapbox.fading canvas,.mapbox.fading .map-pins{animation:mapFade .45s ease}
+@keyframes mapFade{from{opacity:0;filter:blur(6px)}}
+.mapbox::after{content:"";position:absolute;inset:6px;border:1px solid rgba(127,227,255,.28);pointer-events:none;z-index:4}
+.mapbox .mc{position:absolute;width:46px;height:46px;color:var(--gold);opacity:.9;pointer-events:none;z-index:5}
+.mapbox .mc svg{width:100%;height:100%;display:block}
+.mapbox .m1{left:2px;top:2px}.mapbox .m2{right:2px;top:2px;transform:scaleX(-1)}.mapbox .m3{left:2px;bottom:2px;transform:scaleY(-1)}.mapbox .m4{right:2px;bottom:2px;transform:scale(-1,-1)}
+.map-pins{position:absolute;inset:0;z-index:2}
+.map-scan{position:absolute;inset:0;z-index:1;pointer-events:none;background:repeating-linear-gradient(0deg,rgba(127,227,255,.035) 0 1px,transparent 1px 3px)}
+.pin{position:absolute;transform:translate(-50%,-15px);background:none;border:0;padding:0;cursor:grab;display:flex;flex-direction:column;align-items:center;gap:1px;color:var(--ink);font-style:italic;touch-action:none}
+.pin.above{flex-direction:column-reverse;transform:translate(-50%,calc(-100% + 15px))}
+.pin .mk{width:30px;height:30px;display:grid;place-items:center;position:relative;flex:none}
+.pin .mk::before{content:"";position:absolute;inset:4px;transform:rotate(45deg);background:rgba(6,10,16,.88);border:2px solid var(--pc);box-shadow:0 0 10px var(--pc)}
+.pin .mk svg{position:relative;width:15px;height:13px;color:var(--pc)}
+.pin .lb{font-size:11px;font-weight:700;white-space:nowrap;max-width:150px;overflow:hidden;text-overflow:ellipsis;background:rgba(0,0,0,.55);padding:1px 6px;text-shadow:0 1px 2px #000}
+.pin .tm{font-size:10px;color:var(--cyan);font-style:normal;font-variant-numeric:tabular-nums;text-shadow:0 1px 2px #000,0 0 4px #000}
+.pin:focus-visible{outline:none}
+.pin:focus-visible .mk::before,.pin.sel .mk::before{border-color:#fff;box-shadow:0 0 0 2px var(--pc),0 0 20px var(--pc)}
+.pin.sel{z-index:3}
+.pin.sel .mk{animation:pinBob 1.3s ease-in-out infinite}
+@keyframes pinBob{50%{transform:translateY(-4px)}}
+.pin.done{opacity:.5}
+.pin.ghost{opacity:.8;cursor:default}
+.pin.ghost .mk::before{border-style:dashed;background:rgba(6,10,16,.5)}
+.pin.dragging{cursor:grabbing;z-index:6}
+.pin.dragging .mk{animation:none;transform:scale(1.15)}
+.here{position:absolute;z-index:3;width:0;height:0;pointer-events:none}
+.here .dot{position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;background:var(--cyan);box-shadow:0 0 14px var(--cyan),0 0 0 3px rgba(127,227,255,.3)}
+.here .ring{position:absolute;left:-7px;top:-7px;width:14px;height:14px;border-radius:50%;border:2px solid var(--cyan);animation:hereRing 1.9s ease-out infinite}
+.here .ring.r2{animation-delay:.95s}
+@keyframes hereRing{from{transform:scale(1);opacity:.9}to{transform:scale(4.2);opacity:0}}
+.here .hl{position:absolute;right:14px;top:-38px;text-align:right;white-space:nowrap;font-size:13px;font-weight:800;color:#fff;text-shadow:0 0 8px var(--cyan),0 1px 2px #000}
+.here .hl small{display:block;font-size:10px;color:var(--cyan);font-weight:700;font-style:normal}
+.drop-ghost{position:absolute;z-index:6;pointer-events:none;width:0;height:0}
+.drop-ghost::before{content:"";position:absolute;left:-9px;top:-9px;width:18px;height:18px;transform:rotate(45deg);border:2px dashed var(--cyan);box-shadow:0 0 12px var(--cyan)}
+.drop-ghost span{position:absolute;left:14px;top:-10px;font-size:12px;font-weight:800;color:#fff;background:rgba(0,0,0,.6);padding:1px 6px;white-space:nowrap;font-style:normal}
+.map-empty{position:absolute;left:50%;top:14px;transform:translateX(-50%);z-index:3;max-width:min(440px,80%);text-align:center;font-size:12.5px;line-height:1.5;color:#e6f7ff;background:rgba(2,12,22,.72);border:1px solid rgba(127,227,255,.35);padding:8px 14px;pointer-events:none}
+.itin{position:relative;background:var(--panel);border:1px solid var(--line);padding:20px 18px 14px;display:flex;flex-direction:column;gap:10px;box-shadow:0 14px 50px rgba(0,0,0,.55);min-width:0}
+.itin::before{content:"";position:absolute;inset:5px;border:1px solid var(--line-soft);pointer-events:none}
+.itin > *{position:relative}
+.itin h2{margin:0;font-size:18px;font-weight:800}
+.itin h3{margin:4px 0 0;font-size:12px;color:var(--gold);font-weight:700;letter-spacing:.03em}
+.itin-sum{font-size:12px;color:var(--muted);line-height:1.45}
+.itin-sum b{color:var(--cyan)}
+.itin-list,.unplaced{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:3px;max-height:260px;overflow-y:auto;scrollbar-width:thin;scrollbar-color:rgba(255,255,255,.3) transparent}
+.it{display:flex;align-items:center;gap:9px;padding:6px 8px;background:linear-gradient(90deg,rgba(255,255,255,.045),transparent);border-left:2px solid var(--pc);cursor:pointer}
+.it:hover{background:linear-gradient(90deg,rgba(255,255,255,.09),transparent)}
+.it.sel{background:linear-gradient(90deg,rgba(255,251,230,.14),transparent);box-shadow:inset 0 0 0 1px rgba(255,251,230,.45)}
+.it .tm{font-size:11.5px;font-variant-numeric:tabular-nums;color:var(--cyan);font-style:normal;min-width:5.8em;flex:none}
+.it .ti{flex:1;min-width:0}
+.it .ti b{display:block;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it .ti span{display:block;font-size:11px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.it.done .ti b{text-decoration:line-through;color:var(--muted)}
+.it .ck{width:18px;height:18px;position:relative;flex:none;background:none;border:0;padding:0;cursor:pointer}
+.it .ck::before{content:"";position:absolute;inset:3px;transform:rotate(45deg);border:1.5px solid var(--pc)}
+.it.done .ck::before{background:var(--pc);box-shadow:0 0 8px var(--pc)}
+.it.done .ck::after{content:"";position:absolute;left:7px;top:3px;width:4px;height:8px;border:solid #15120a;border-width:0 2px 2px 0;transform:rotate(45deg)}
+.it .ck:focus-visible{outline:1px solid var(--frame);outline-offset:2px}
+.itin-detail{border-top:1px solid var(--line-soft);padding-top:10px;display:flex;flex-direction:column;gap:4px;font-size:13px}
+.itin-detail .dt{font-size:15px;font-weight:800}
+.itin-detail .dm{color:var(--muted);font-size:12px}
+.itin-detail .acts{display:flex;flex-wrap:wrap;gap:2px 14px;margin-top:4px}
+.itin-detail .hint{font-size:12px}
+.unplaced li{display:flex;align-items:center;gap:8px;padding:5px 8px;background:rgba(255,255,255,.035);cursor:grab;font-size:13px}
+.unplaced li:active{cursor:grabbing}
+.unplaced li .ic{width:20px;height:17px;color:var(--pc);flex:none}
+.unplaced li .ic svg{width:100%;height:100%}
+.unplaced li b{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:700}
+.unplaced li button{background:none;border:1px solid rgba(127,227,255,.45);color:var(--cyan);font-size:11px;padding:2px 9px;cursor:pointer;font-style:italic;flex:none}
+.unplaced li button:hover,.unplaced li button:focus-visible{background:rgba(127,227,255,.15);outline:none}
+.unplaced .none{cursor:default;color:var(--muted);font-size:12px;background:none}
+.proposal{border:1px dashed rgba(127,227,255,.55);padding:10px 12px;display:flex;flex-direction:column;gap:6px;background:rgba(10,34,56,.4)}
+.proposal h3{margin:0;color:var(--cyan)}
+.proposal label{display:flex;gap:8px;align-items:center;font-size:13px;cursor:pointer}
+.proposal label .tm{color:var(--cyan);font-variant-numeric:tabular-nums;font-style:normal;font-size:11.5px;min-width:5.8em}
+.proposal label span:last-child{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.proposal input{accent-color:var(--cyan);flex:none}
+.proposal .acts{display:flex;gap:10px;flex-wrap:wrap;margin-top:4px}
+.field select{background:rgba(255,255,255,.04);border:0;border-bottom:1px solid var(--line);color:var(--ink);font:inherit;font-style:italic;font-size:14.5px;padding:8px 10px;outline:none;min-width:0}
+.field select:focus{border-bottom-color:var(--frame);background:rgba(255,255,255,.07)}
+.field select option{background:#0b0f16;color:var(--ink);font-style:normal}
+.field input[type=time]{color-scheme:dark}
+.catpick.kinds button svg{width:18px;height:16px;color:var(--pc)}
+@media (max-width:900px){
+  .map-main{grid-template-columns:minmax(0,1fr)}
+  .mapbox{aspect-ratio:4/3;min-height:300px}
+  .dayname{min-width:0}
+}
+
 
 /* Quête accomplie */
 .fx{position:fixed;inset:0;z-index:30;cursor:pointer;overflow:hidden}
@@ -387,7 +501,8 @@ main{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:30px;a
     </div>
     <div class="title-block">
       <div class="title-row">
-        <h1>Journal d'aventure</h1>
+        <button class="subtab" id="go-map" title="Changer d'écran (M)"><span class="ic" id="go-map-ic"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 4.5l5-2 6 2 5-2v13l-5 2-6-2-5 2z"/><path d="M7 2.5v13M13 4.5v13"/></svg></span><span id="go-map-l">Carte</span> <span class="kk">M</span></button>
+        <h1 id="screen-title">Journal d'aventure</h1>
         <button class="subtab" id="open-settings" title="Réglages (R)">
           <svg viewBox="0 0 20 20" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6"><circle cx="10" cy="10" r="3"/><path d="M10 1.5v3M10 15.5v3M1.5 10h3M15.5 10h3M4 4l2.1 2.1M13.9 13.9L16 16M4 16l2.1-2.1M13.9 6.1L16 4"/></svg>
           Réglages <span class="kk">R</span>
@@ -401,6 +516,7 @@ main{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:30px;a
     </button>
   </header>
 
+  <div class="view" id="view-log">
   <main>
     <section class="col-left" aria-label="Quêtes">
       <div class="cat-label" id="cat-label"></div>
@@ -430,6 +546,40 @@ main{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:30px;a
       </article>
     </section>
   </main>
+  </div>
+
+  <div class="view" id="view-map" hidden>
+    <div class="map-top">
+      <div class="daynav">
+        <button class="kbtn" id="day-prev" aria-label="Jour précédent" title="Jour précédent (←)">◀</button>
+        <div class="dayname"><span class="dl" id="day-label"></span><span class="rel" id="day-rel"></span></div>
+        <button class="kbtn" id="day-next" aria-label="Jour suivant" title="Jour suivant (→)">▶</button>
+      </div>
+      <div class="map-actions">
+        <button class="btn ghost" id="ev-add">+ Ajouter un créneau</button>
+        <button class="btn cyan" id="plan-ai">✦ Organiser ma journée</button>
+      </div>
+    </div>
+    <div class="map-main">
+      <div class="mapbox" id="mapbox" aria-label="Carte de la journée : un chemin de 6 h à 22 h">
+        <canvas id="map-terrain" aria-hidden="true"></canvas>
+        <canvas id="map-route" aria-hidden="true"></canvas>
+        <div class="map-scan" aria-hidden="true"></div>
+        <div class="map-pins" id="map-pins"></div>
+        <div class="map-empty" id="map-empty" hidden></div>
+        <span class="mc m1"></span><span class="mc m2"></span><span class="mc m3"></span><span class="mc m4"></span>
+      </div>
+      <aside class="itin" aria-label="Itinéraire du jour">
+        <h2>Itinéraire</h2>
+        <div class="itin-sum" id="itin-sum"></div>
+        <div id="proposal-box"></div>
+        <ul class="itin-list" id="itin-list"></ul>
+        <div class="itin-detail" id="itin-detail" hidden></div>
+        <h3>Quêtes à placer <span class="msg">· glisse-les sur le chemin</span></h3>
+        <ul class="unplaced" id="unplaced"></ul>
+      </aside>
+    </div>
+  </div>
 
   <div class="cmdbar">
     <div class="left"><span class="status" id="status">Ouverture du journal…</span><span class="savestate" id="savestate" hidden></span></div>
@@ -476,6 +626,30 @@ main{display:grid;grid-template-columns:minmax(0,370px) minmax(0,1fr);gap:30px;a
     <div class="sheet-f">
       <button type="button" class="hint" id="qf-cancel"><span class="k">Échap</span>Annuler</button>
       <button type="submit" class="hint" id="qf-save"><span class="k">✓</span>Inscrire au journal</button>
+    </div>
+  </form>
+</div>
+
+<!-- Fenêtre : créneau de la carte -->
+<div class="modal" id="m-ev" hidden>
+  <form class="sheet" id="evform" novalidate>
+    <h2 id="ev-h">Nouveau créneau</h2>
+    <div class="field"><span class="lab" id="ev-kind-l">Type</span><div class="catpick kinds" id="ev-kind" role="radiogroup" aria-labelledby="ev-kind-l"></div></div>
+    <div class="two" id="ev-quest-row">
+      <label class="field"><span class="lab">Quête</span><select id="ev-quest"></select></label>
+      <label class="field"><span class="lab">Étape (facultatif)</span><select id="ev-step"></select></label>
+    </div>
+    <label class="field" id="ev-title-f"><span class="lab">Titre</span><input id="ev-title" maxlength="80" autocomplete="off"></label>
+    <div class="two">
+      <label class="field"><span class="lab">Début</span><input type="time" id="ev-start" step="300" min="06:00" max="21:45"></label>
+      <label class="field"><span class="lab">Durée</span><select id="ev-dur"></select></label>
+    </div>
+    <label class="field"><span class="lab">Lieu (facultatif)</span><input id="ev-place" maxlength="60" autocomplete="off" placeholder="Ex. : Bureau, Salle de sport"></label>
+    <span class="msg err" id="ev-err" role="alert"></span>
+    <div class="sheet-f">
+      <button type="button" class="hint danger" id="ev-del" hidden><span class="k">Suppr</span>Retirer</button>
+      <button type="button" class="hint" id="ev-cancel"><span class="k">Échap</span>Annuler</button>
+      <button type="submit" class="hint" id="ev-save"><span class="k">✓</span>Placer sur la carte</button>
     </div>
   </form>
 </div>
@@ -647,6 +821,7 @@ const Store={
           await IDB.put("kv",true,"initialized");
         }
         const g=await IDB.get("kv","gemini"); if(g) aiCfg=Object.assign(aiCfg,g);
+        const pl=await IDB.get("kv","plans"); if(pl&&typeof pl==="object"&&!Array.isArray(pl)) plans=pl;
       }catch(e){ this.mode="memory"; }
       try{ if(navigator.storage&&navigator.storage.persist) persisted=(await navigator.storage.persisted())||(await navigator.storage.persist()); }catch(e){}
       await Disk.init();
@@ -672,6 +847,12 @@ const Store={
     quests=quests.filter(q=>q.id!==id); renderAll();
     if(this.mode!=="idb") return;
     return this.track(this.queue("q/"+id,()=>IDB.del("quests",id)));
+  },
+  async putPlans(){
+    const lim=addDays(todayKey(),-120); Object.keys(plans).forEach(k=>{ if(k<lim||!Array.isArray(plans[k])||!plans[k].length) delete plans[k]; });
+    if(this.mode!=="idb") return;
+    const body=JSON.parse(JSON.stringify(plans));
+    return this.track(this.queue("plans",()=>IDB.put("kv",body,"plans")));
   },
   async putSettings(patch){
     settings=Object.assign({},settings,patch); applySettings();
@@ -711,7 +892,7 @@ async function exportData(){
   const files={};
   for(const id of referencedFiles()){ const r=await Files.get(id); if(r) files[id]={type:r.type,name:r.name}; }
   const st=JSON.parse(JSON.stringify(settings));
-  return {app:"journal-aventure",format:2,exportedAt:Date.now(),quests,settings:st,files};
+  return {app:"journal-aventure",format:2,exportedAt:Date.now(),quests,settings:st,plans:JSON.parse(JSON.stringify(plans)),files};
 }
 
 /* --- Sauvegarde automatique dans un dossier de l'ordinateur --- */
@@ -780,12 +961,12 @@ const KEEP=30, KEEP_R=20, ID_RE=/^[A-Za-z0-9_\-.~:@+]{1,200}$/;
 const Backup={
   timer:0, lastJson:null, lastKey:null, lastPoint:0,
   schedule(){ if(!ready) return; clearTimeout(this.timer); this.timer=setTimeout(()=>this.run(),4000); },
-  snapshot(){ return {at:Date.now(), count:quests.length, quests:quests.map(q=>Object.assign({},q)), settings:JSON.parse(JSON.stringify(settings))}; },
+  snapshot(){ return {at:Date.now(), count:quests.length, quests:quests.map(q=>Object.assign({},q)), settings:JSON.parse(JSON.stringify(settings)), plans:JSON.parse(JSON.stringify(plans))}; },
   dayKey(d=new Date()){ return "j"+d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0"); },
   async write(id,snap){ if(Store.mode!=="idb") return; snap.id=id; await IDB.put("backups",snap); },
   async point(note){ const snap=this.snapshot(); if(note) snap.note=note; try{ await this.write("r"+Date.now(),snap); this.lastPoint=Date.now(); await this.prune(); }catch(e){} },
   async run(){
-    const snap=this.snapshot(), key=this.dayKey(), json=JSON.stringify({q:snap.quests,s:snap.settings});
+    const snap=this.snapshot(), key=this.dayKey(), json=JSON.stringify({q:snap.quests,s:snap.settings,p:snap.plans});
     if(json===this.lastJson) return;
     try{ await this.write(key,snap); this.lastJson=json; }catch(e){ return; }
     if(Date.now()-this.lastPoint>15*60000) await this.point(); else if(this.lastKey!==key) await this.prune();
@@ -825,7 +1006,9 @@ function cleanSnapshot(raw){
     if(SCENES[rs.wall.kind]) st.wall={kind:rs.wall.kind};
     else if(rs.wall.kind==="custom"&&typeof rs.wall.file==="string"&&FILE_RE.test(rs.wall.file)) st.wall={kind:"custom",file:rs.wall.file,media:rs.wall.media==="video"?"video":"image"};
   }
-  return {quests:qs,settings:st,at:typeof raw.at==="number"?raw.at:(typeof raw.exportedAt==="number"?raw.exportedAt:null)};
+  let pl=null;
+  if(raw.plans&&typeof raw.plans==="object"&&!Array.isArray(raw.plans)){ pl={}; for(const k of Object.keys(raw.plans)){ if(!/^\d{4}-\d{2}-\d{2}$/.test(k)||!Array.isArray(raw.plans[k])) continue; const arr=raw.plans[k].map(cleanItem).filter(Boolean).slice(0,60); if(arr.length) pl[k]=arr; } }
+  return {quests:qs,settings:st,plans:pl,at:typeof raw.at==="number"?raw.at:(typeof raw.exportedAt==="number"?raw.exportedAt:null)};
 }
 async function dropMissingFiles(snap){
   for(const q of snap.quests) if(q.image&&!(await Files.get(q.image))) delete q.image;
@@ -841,6 +1024,7 @@ async function restore(snap){
     for(const q of quests.slice()) if(!keep.has(q.id)) await Store.removeQuest(q.id);
     for(const q of snap.quests) await Store.putQuest(Object.assign({},q));
     await Store.putSettings(snap.settings);
+    if(snap.plans){ plans=snap.plans; mapSel=null; proposal=null; await Store.putPlans(); }
     CATS.forEach(c=>selId[c.id]=null);
     toast(`Journal restauré : ${snap.quests.length} quête${snap.quests.length>1?"s":""}.`); SFX.save();
   } finally { restoring=false; renderAll(); renderSave(); }
@@ -1003,6 +1187,7 @@ const SFX = {
   type(){ tone(2600+Math.random()*400,.015,"sine",.005); },
   stamp(){ tone(95,.35,"sine",.13,0,55); noise(.18,300,120,.06); },
   save(){ tone(1175,.12,"triangle",.03); tone(1568,.18,"triangle",.03,.08); },
+  slate(){ noise(.24,600,4200,.05); tone(1760,.06,"square",.012,.03); tone(2637,.1,"sine",.022,.1); },
   check(){ tone(1318.5,.09,"triangle",.035); tone(1975.5,.16,"sine",.025,.06); noise(.08,2500,6000,.025); },
   fanfare(){
     noise(.6,400,5000,.05);
@@ -1212,6 +1397,7 @@ function renderHearts(){
   $("#hearts").setAttribute("aria-label",`Il reste ${h} h ${mn} min avant 22 h`);
   $("#clock").textContent = remain>0 ? `${fmt(m)} · encore ${h} h ${String(mn).padStart(2,"0")}` : fmt(m);
   checkNight(m);
+  if(view==="map"&&MapS.route){ drawRoute(); renderHere(); }
 }
 
 /* ================= Pause nocturne ================= */
@@ -1266,7 +1452,7 @@ function listOf(c){
 }
 function memNo(q){ return quests.filter(x=>x.cat==="mem").sort((a,b)=>(a.created||0)-(b.created||0)).findIndex(x=>x.id===q.id)+1; }
 function current(){ const items=listOf(cat); let q=items.find(x=>x.id===selId[cat]); if(!q&&items.length){ q=items[0]; selId[cat]=q.id; } return q||null; }
-function renderAll(){ renderTabs(); renderList(); renderPanel(); renderTracked(); renderCapital(); }
+function renderAll(){ renderTabs(); renderList(); renderPanel(); renderTracked(); renderCapital(); if(view==="map") renderMap(); }
 function renderTabs(){
   const t=$("#tabs"); t.querySelectorAll(".tab").forEach(b=>b.remove());
   CATS.forEach(c=>{
@@ -1368,6 +1554,7 @@ function renderPanel(){
 }
 function hint(k,label,fn,cls){ const b=document.createElement("button"); b.className="hint"+(cls?" "+cls:""); b.innerHTML=`<span class="k"></span><span></span>`; b.firstChild.textContent=k; b.lastChild.textContent=label; b.onclick=fn; return b; }
 function renderHints(q){
+  if(view==="map") return;
   const H=$("#hints"); H.innerHTML="";
   if(!q) return;
   if(q.cat!=="mem"&&q.tasks&&q.tasks.length&&!q.done){
@@ -1782,6 +1969,458 @@ $("#rm-examples").onclick=()=>{
 };
 $("#new-quest").onclick=()=>openForm(null);
 
+/* ================= Écran Carte : planificateur de journée ================= */
+let view="log", plans={}, mapDay=null, mapSel=null, proposal=null, planBusy=false, dragQuest=null;
+const DAY0=360, DAY1=1320;
+const dkey=d=>d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+const todayKey=()=>dkey(new Date());
+const parseKey=k=>{ const [y,m,d]=k.split("-").map(Number); return new Date(y,m-1,d); };
+const addDays=(k,n)=>{ const d=parseKey(k); d.setDate(d.getDate()+n); return dkey(d); };
+const hhmm=m=>String(Math.floor(m/60)).padStart(2,"0")+":"+String(Math.round(m%60)).padStart(2,"0");
+const hm2=s=>{ const x=/^(\d{1,2})[:h](\d{2})$/.exec(String(s||"").trim()); return x?(+x[1])*60+(+x[2]):null; };
+const durTxt=m=>m<60?`${m} min`:(m%60?`${Math.floor(m/60)} h ${String(m%60).padStart(2,"0")}`:`${m/60} h`);
+const snap15=m=>Math.round(m/15)*15;
+const planId=()=>"p"+Date.now().toString(36)+Math.random().toString(36).slice(2,6);
+const MAPICON=`<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 4.5l5-2 6 2 5-2v13l-5 2-6-2-5 2z"/><path d="M7 2.5v13M13 4.5v13"/></svg>`;
+const BOOKICON=`<svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2.5 3.5h6a2 2 0 0 1 2 2v11a2 2 0 0 0-2-2h-6z"/><path d="M17.5 3.5h-6a2 2 0 0 0-2 2v11a2 2 0 0 1 2-2h6z"/></svg>`;
+const KINDS={
+  quest:{label:"Quête",color:"#e8c766",icon:ICON.main},
+  meal:{label:"Repas",color:"#f0a35e",icon:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11h18a9 9 0 0 1-18 0z" fill="currentColor"/><path d="M9 2.5c-1 1.5 1 2.5 0 4.5M14 2.5c-1 1.5 1 2.5 0 4.5" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`},
+  meeting:{label:"Rendez-vous",color:"#c79bff",icon:`<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><circle cx="8" cy="7.5" r="3.3"/><circle cx="16.8" cy="8.5" r="2.7"/><path d="M1.5 20c0-3.8 2.9-6.5 6.5-6.5s6.5 2.7 6.5 6.5z"/><path d="M14 20c.2-2.7-.7-4.6-2-5.7 1.1-.6 2.3-.9 3.8-.9 3.1 0 5.7 2.3 5.7 5.6v1z"/></svg>`},
+  sport:{label:"Sport",color:"#7fe07a",icon:`<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.5 1.5 4 14h6.5l-1.5 8.5L19 9.5h-6.5z"/></svg>`},
+  break:{label:"Pause",color:"#a8d8ff",icon:`<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3.5 9h12.5v5a5 5 0 0 1-5 5H8.5a5 5 0 0 1-5-5z" fill="currentColor"/><path d="M16 10.5h2a2.6 2.6 0 0 1 0 5.2h-2M7.5 2.5c-.8 1.2.8 2.2 0 3.6M11.5 2.5c-.8 1.2.8 2.2 0 3.6" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>`},
+  other:{label:"Autre",color:"#f3f1e8",icon:`<svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2l2.6 7.4L22 12l-7.4 2.6L12 22l-2.6-7.4L2 12l7.4-2.6z"/></svg>`}
+};
+const KIND_PH={meal:"Ex. : Déjeuner",meeting:"Ex. : Rendez-vous chez le dentiste",sport:"Ex. : Course à pied",break:"Ex. : Pause thé",other:"Ex. : Appeler Léa"};
+document.querySelectorAll(".mapbox .mc").forEach(c=>c.innerHTML=CORNER);
+
+/* --- Données du planning --- */
+function cleanItem(it){
+  if(!it||typeof it!=="object") return null;
+  const kind=KINDS[it.kind]?it.kind:"other";
+  let start=Math.round(+it.start), dur=Math.round(+it.dur);
+  if(!isFinite(start)||!isFinite(dur)) return null;
+  start=Math.max(DAY0,Math.min(DAY1-15,start)); dur=Math.max(15,Math.min(DAY1-start,dur));
+  const o={id:typeof it.id==="string"&&/^[A-Za-z0-9_-]{1,40}$/.test(it.id)?it.id:planId(),kind,start,dur};
+  if(typeof it.title==="string"&&it.title.trim()) o.title=it.title.trim().slice(0,80);
+  if(typeof it.place==="string"&&it.place.trim()) o.place=it.place.trim().slice(0,60);
+  if(kind==="quest"&&typeof it.questId==="string"&&ID_RE.test(it.questId)) o.questId=it.questId;
+  if(o.questId&&typeof it.stepId==="string"&&/^[A-Za-z0-9_-]{1,40}$/.test(it.stepId)) o.stepId=it.stepId;
+  if(it.done===true) o.done=true;
+  return o;
+}
+function dayItems(k){ return (plans[k]||[]).slice().sort((a,b)=>a.start-b.start); }
+function itemQuest(it){ return it.questId?quests.find(q=>q.id===it.questId)||null:null; }
+function itemStep(it){ const q=itemQuest(it); return q&&it.stepId&&q.tasks?q.tasks.find(t=>t.id===it.stepId)||null:null; }
+function itemTitle(it){ const st=itemStep(it); if(st) return st.text; const q=itemQuest(it); if(q) return q.title; return it.title||KINDS[it.kind].label; }
+function itemSub(it){
+  if(it.kind==="quest"){ const q=itemQuest(it); if(!q) return "Quête effacée du journal";
+    const st=itemStep(it); return (st?`Étape de « ${q.title} »`:catOf(q.cat).one)+((it.place||q.place)?` · ${it.place||q.place}`:""); }
+  return KINDS[it.kind].label+(it.place?` · ${it.place}`:"");
+}
+function itemColor(it){ if(it.kind==="quest"){ const q=itemQuest(it); return q&&q.cat==="side"?"#5ec6ee":"#e8c766"; } return KINDS[it.kind].color; }
+function itemIcon(it){ if(it.kind==="quest"){ const q=itemQuest(it); return ICON[q&&q.cat==="side"?"side":"main"]; } return KINDS[it.kind].icon; }
+function itemDone(it){ const st=itemStep(it); if(st) return !!st.done; const q=itemQuest(it); if(it.kind==="quest"&&q&&!it.stepId) return !!q.done; return !!it.done; }
+function saveDay(k,items){ if(items.length) plans[k]=items; else delete plans[k]; Store.putPlans(); renderMap(); }
+function commitItem(){ Store.putPlans(); renderMap(); }
+function nextFree(dur,k=mapDay){
+  const items=dayItems(k); let t=DAY0;
+  if(k===todayKey()) t=Math.max(DAY0,Math.ceil((nowMinutes()+1)/15)*15);
+  for(let guard=0;guard<80&&t+dur<=DAY1;guard++){
+    const clash=items.find(it=>t<it.start+it.dur&&it.start<t+dur);
+    if(!clash) return t; t=Math.ceil((clash.start+clash.dur)/15)*15;
+  }
+  return Math.max(DAY0,Math.min(DAY1-dur,t));
+}
+
+/* --- Géométrie : la journée est un chemin --- */
+const MapS={W:0,H:0,key:null,route:null};
+function buildRoute(k,W,H){
+  const r=rng(seedOf(k)+17), n=7, cps=[];
+  for(let i=0;i<n;i++) cps.push([W*(.07+.86*i/(n-1)), H*(i%2?.26+r()*.16:.6+r()*.18)]);
+  const pts=[];
+  for(let i=0;i<n-1;i++){
+    const p0=cps[Math.max(0,i-1)],p1=cps[i],p2=cps[i+1],p3=cps[Math.min(n-1,i+2)];
+    for(let s=0;s<48;s++){ const t=s/48,t2=t*t,t3=t2*t; const f=j=>.5*(2*p1[j]+(-p0[j]+p2[j])*t+(2*p0[j]-5*p1[j]+4*p2[j]-p3[j])*t2+(-p0[j]+3*p1[j]-3*p2[j]+p3[j])*t3); pts.push([f(0),f(1)]); }
+  }
+  pts.push(cps[n-1]);
+  const len=[0]; for(let i=1;i<pts.length;i++) len.push(len[i-1]+Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]));
+  return {pts,len,total:len[len.length-1]};
+}
+function posAt(route,min){
+  const f=Math.max(0,Math.min(1,(min-DAY0)/(DAY1-DAY0))), L=f*route.total; let lo=0,hi=route.len.length-1;
+  while(hi-lo>1){ const mid=(lo+hi)>>1; if(route.len[mid]<L) lo=mid; else hi=mid; }
+  const a=route.pts[lo],b=route.pts[hi],seg=(route.len[hi]-route.len[lo])||1,t=(L-route.len[lo])/seg;
+  return [a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t,Math.atan2(b[1]-a[1],b[0]-a[0])];
+}
+function timeAt(route,x,y){
+  let best=0,bd=Infinity; route.pts.forEach((p,i)=>{ const d=(p[0]-x)**2+(p[1]-y)**2; if(d<bd){ bd=d; best=i; } });
+  return DAY0+route.len[best]/route.total*(DAY1-DAY0);
+}
+function noise2(seed){
+  const r=rng(seed), G=64, g=new Float32Array(G*G); for(let i=0;i<g.length;i++) g[i]=r();
+  const v=(i,j)=>g[((j%G+G)%G)*G+((i%G+G)%G)], s=t=>t*t*(3-2*t);
+  const f=(x,y)=>{ const xi=Math.floor(x),yi=Math.floor(y),u=s(x-xi),w=s(y-yi),a=v(xi,yi),b=v(xi+1,yi),c=v(xi,yi+1),d=v(xi+1,yi+1); return a+(b-a)*u+(c-a)*w+(a-b-c+d)*u*w; };
+  return (x,y)=>f(x,y)*.55+f(x*2.1+7.3,y*2.1+3.1)*.28+f(x*4.3+11.7,y*4.3+5.9)*.17;
+}
+function drawTerrain(k){
+  const cv=$("#map-terrain"), W=MapS.W, H=MapS.H, dpr=Math.min(devicePixelRatio||1,2);
+  cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr);
+  const g=cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0);
+  const N=noise2(seedOf(k)), cell=3, cw=Math.ceil(W/cell), ch=Math.ceil(H/cell), sc=6.5/Math.max(W,H);
+  const off=document.createElement("canvas"); off.width=cw; off.height=ch; const og=off.getContext("2d"), img=og.createImageData(cw,ch);
+  const lv=new Float32Array(cw*ch);
+  for(let y=0;y<ch;y++) for(let x=0;x<cw;x++) lv[y*cw+x]=N(x*cell*sc,y*cell*sc);
+  for(let y=0;y<ch;y++) for(let x=0;x<cw;x++){
+    const i=y*cw+x, e=lv[i]; let c;
+    if(e<.3) c=[52,92,104]; else if(e<.33) c=[146,146,108]; else if(e<.48) c=[124,124,80]; else if(e<.6) c=[142,134,86]; else if(e<.7) c=[158,144,96]; else c=[182,174,138];
+    const band=Math.floor(e*16), br=x+1<cw?Math.floor(lv[i+1]*16):band, bb=y+1<ch?Math.floor(lv[i+cw]*16):band;
+    if(e>=.3&&(band!==br||band!==bb)) c=c.map(v=>v*.74);
+    const ex=x+1<cw?lv[i+1]:e, ey=y+1<ch?lv[i+cw]:e, sh=(e-ex+e-ey)*300;
+    const o=i*4; img.data[o]=Math.max(0,Math.min(255,c[0]+sh)); img.data[o+1]=Math.max(0,Math.min(255,c[1]+sh)); img.data[o+2]=Math.max(0,Math.min(255,c[2]+sh)); img.data[o+3]=255;
+  }
+  og.putImageData(img,0,0); g.imageSmoothingEnabled=true; g.drawImage(off,0,0,W,H);
+  const r=rng(seedOf(k)+5);
+  for(let i=0;i<Math.round(W*H/1800);i++){ const x=r()*W, y=r()*H, e=N(x*sc,y*sc); if(e<.36||e>.6) continue; g.fillStyle=`rgba(${54+r()*20|0},${78+r()*22|0},46,.6)`; g.beginPath(); g.arc(x,y,1.6+r()*3.2,0,7); g.fill(); }
+  g.strokeStyle="rgba(127,227,255,.08)"; g.lineWidth=1;
+  for(let x=0;x<W;x+=44){ g.beginPath(); g.moveTo(x+.5,0); g.lineTo(x+.5,H); g.stroke(); }
+  for(let y=0;y<H;y+=44){ g.beginPath(); g.moveTo(0,y+.5); g.lineTo(W,y+.5); g.stroke(); }
+  g.fillStyle="rgba(40,120,200,.07)"; g.fillRect(0,0,W,H);
+  const vg=g.createRadialGradient(W/2,H/2,Math.min(W,H)*.3,W/2,H/2,Math.max(W,H)*.75); vg.addColorStop(0,"rgba(8,34,64,0)"); vg.addColorStop(1,"rgba(4,20,44,.6)"); g.fillStyle=vg; g.fillRect(0,0,W,H);
+  const fs=Math.round(Math.max(18,Math.min(W,H)*.06)); g.font=`italic 800 ${fs}px "Noto Sans",sans-serif`; g.textAlign="center";
+  [["Matin",480],["Midi",750],["Après-midi",930],["Soir",1170]].forEach(([t,m],j)=>{
+    const [px,py]=posAt(MapS.route,m); let ty=py+(j%2?-1:1)*Math.min(78,H*.15); ty=Math.max(fs+8,Math.min(H-12,ty));
+    g.lineWidth=4; g.strokeStyle="rgba(0,0,0,.22)"; g.strokeText(t,px,ty); g.fillStyle="rgba(255,255,255,.3)"; g.fillText(t,px,ty);
+  });
+}
+function strokeSpan(g,route,m0,m1){ const n=Math.max(2,Math.ceil((m1-m0)/4)); g.beginPath(); for(let i=0;i<=n;i++){ const [x,y]=posAt(route,m0+(m1-m0)*i/n); if(i) g.lineTo(x,y); else g.moveTo(x,y); } g.stroke(); }
+function pastLimit(){ const t=todayKey(); return mapDay===t?Math.max(DAY0,Math.min(DAY1,nowMinutes())):(mapDay<t?DAY1:DAY0); }
+function drawRoute(){
+  const cv=$("#map-route"), W=MapS.W, H=MapS.H, route=MapS.route; if(!route) return;
+  const dpr=Math.min(devicePixelRatio||1,2); if(cv.width!==Math.round(W*dpr)){ cv.width=Math.round(W*dpr); cv.height=Math.round(H*dpr); }
+  const g=cv.getContext("2d"); g.setTransform(dpr,0,0,dpr,0,0); g.clearRect(0,0,W,H); g.lineCap="round"; g.lineJoin="round";
+  const past=pastLimit();
+  g.strokeStyle="rgba(0,0,0,.5)"; g.lineWidth=9; strokeSpan(g,route,DAY0,DAY1);
+  g.strokeStyle="rgba(240,236,214,.6)"; g.lineWidth=2.5; g.setLineDash([6,7]); strokeSpan(g,route,DAY0,DAY1); g.setLineDash([]);
+  if(past>DAY0){ g.save(); g.shadowColor="#7fe3ff"; g.shadowBlur=10; g.strokeStyle="#7fe3ff"; g.lineWidth=3.5; strokeSpan(g,route,DAY0,past); g.restore(); }
+  const items=dayItems(mapDay).concat(proposal?proposal.filter(p=>p.accept).map(p=>Object.assign({ghost:true},p)):[]);
+  items.forEach(it=>{ const c=itemColor(it); g.save(); g.globalAlpha=it.ghost?.55:itemDone(it)?.45:1; g.shadowColor=c; g.shadowBlur=12; g.strokeStyle=c; g.lineWidth=7; if(it.ghost) g.setLineDash([8,6]); strokeSpan(g,route,it.start,it.start+it.dur); g.restore(); });
+  g.font='italic 700 10px "Noto Sans",sans-serif'; g.textAlign="center"; g.textBaseline="middle";
+  for(let h=6;h<=22;h++){
+    const [x,y,a]=posAt(route,h*60);
+    g.save(); g.translate(x,y); g.rotate(Math.PI/4); g.fillStyle=h*60<=past?"#7fe3ff":"#f0ecd6"; g.strokeStyle="rgba(0,0,0,.6)"; g.lineWidth=1; g.fillRect(-3,-3,6,6); g.strokeRect(-3,-3,6,6); g.restore();
+    const nx=-Math.sin(a)*15, ny=Math.cos(a)*15; g.lineWidth=3; g.strokeStyle="rgba(0,0,0,.6)"; g.strokeText(h+" h",x-nx,y-ny); g.fillStyle="rgba(255,255,255,.85)"; g.fillText(h+" h",x-nx,y-ny);
+  }
+  const ends=[[DAY0,"Réveil"],[DAY1,"Campement"]];
+  g.font='italic 800 11px "Noto Sans",sans-serif';
+  ends.forEach(([m,t])=>{ const [x,y]=posAt(route,m); g.save(); g.fillStyle="#d9c27c"; g.shadowColor="#d9c27c"; g.shadowBlur=10; g.beginPath(); g.arc(x,y,6,0,7); g.fill(); g.restore(); g.lineWidth=3; g.strokeStyle="rgba(0,0,0,.6)"; g.strokeText(t,x,y+20); g.fillStyle="#f6e6ad"; g.fillText(t,x,y+20); });
+  g.textBaseline="alphabetic";
+}
+function renderPins(){
+  const box=$("#map-pins"), route=MapS.route; if(!route) return; box.innerHTML="";
+  const items=dayItems(mapDay), ghosts=proposal?proposal.filter(p=>p.accept):[];
+  items.concat(ghosts.map(p=>Object.assign({ghost:true},p))).sort((a,b)=>a.start-b.start).forEach((it,idx)=>{
+    const [x,y]=posAt(route,it.start), b=document.createElement("button");
+    let above=idx%2===1; if(y<70) above=false; if(y>MapS.H-80) above=true;
+    b.className="pin"+(above?" above":"")+(it.ghost?" ghost":"")+(itemDone(it)?" done":"")+(mapSel===it.id&&!it.ghost?" sel":"");
+    b.style.left=x+"px"; b.style.top=y+"px"; b.style.setProperty("--pc",itemColor(it));
+    b.innerHTML=`<span class="mk">${itemIcon(it)}</span><span class="lb"></span><span class="tm">${hhmm(it.start)}</span>`;
+    b.querySelector(".lb").textContent=itemTitle(it);
+    b.setAttribute("aria-label",`${hhmm(it.start)} à ${hhmm(it.start+it.dur)} : ${itemTitle(it)}${it.ghost?" (proposition)":""}`);
+    if(!it.ghost){ pinDrag(b,(plans[mapDay]||[]).find(x=>x.id===it.id)); b.addEventListener("dblclick",()=>{ const real=(plans[mapDay]||[]).find(x=>x.id===it.id); if(real) openEv(real); }); }
+    else b.tabIndex=-1;
+    box.appendChild(b);
+  });
+  renderHere();
+  const empty=$("#map-empty");
+  if(!items.length&&!ghosts.length){ empty.hidden=false; empty.textContent=mapDay<todayKey()?"Aucun créneau n'était prévu ce jour-là.":"Aucun créneau pour l'instant. Glisse une quête sur le chemin, ou clique « Ajouter un créneau »."; }
+  else empty.hidden=true;
+}
+function renderHere(){
+  const box=$("#map-pins"); let h=box.querySelector(".here");
+  const now=nowMinutes(), show=mapDay===todayKey()&&now>=DAY0&&now<=DAY1&&MapS.route;
+  if(!show){ if(h) h.remove(); return; }
+  if(!h){ h=document.createElement("div"); h.className="here"; h.innerHTML=`<span class="ring"></span><span class="ring r2"></span><span class="dot"></span><span class="hl">Position actuelle<small></small></span>`; box.appendChild(h); }
+  const [x,y]=posAt(MapS.route,now); h.style.left=x+"px"; h.style.top=y+"px"; h.querySelector("small").textContent=fmt(now);
+}
+function pinDrag(b,it){
+  if(!it) return;
+  b.addEventListener("pointerdown",e=>{
+    if(e.button!==0) return;
+    const rect=$("#mapbox").getBoundingClientRect(), sx=e.clientX, sy=e.clientY, start0=it.start; let moved=false;
+    b.setPointerCapture(e.pointerId);
+    const mv=ev=>{
+      if(!moved&&Math.hypot(ev.clientX-sx,ev.clientY-sy)<6) return;
+      moved=true; b.classList.add("dragging");
+      let m=snap15(timeAt(MapS.route,ev.clientX-rect.left,ev.clientY-rect.top)); m=Math.max(DAY0,Math.min(DAY1-it.dur,m));
+      if(m!==it.start){ it.start=m; const [x,y]=posAt(MapS.route,m); b.style.left=x+"px"; b.style.top=y+"px"; b.querySelector(".tm").textContent=hhmm(m); drawRoute(); }
+    };
+    const up=()=>{ b.removeEventListener("pointermove",mv); b.removeEventListener("pointerup",up); b.removeEventListener("pointercancel",up); b.classList.remove("dragging");
+      if(moved){ if(it.start!==start0){ SFX.move(); commitItem(); toast(`« ${itemTitle(it)} » déplacé à ${hhmm(it.start)}.`); } else renderMap(); }
+      else selectItem(it.id,true); };
+    b.addEventListener("pointermove",mv); b.addEventListener("pointerup",up); b.addEventListener("pointercancel",up);
+  });
+  b.addEventListener("keydown",e=>{ if(e.key==="Enter"||e.key===" "){ e.preventDefault(); e.stopPropagation(); selectItem(it.id,true); } });
+}
+
+/* --- Panneau Itinéraire --- */
+function renderItin(){
+  const items=dayItems(mapDay), total=items.reduce((s,it)=>s+it.dur,0), done=items.filter(itemDone).length, sum=$("#itin-sum");
+  if(!items.length) sum.textContent="Ton itinéraire est vide pour ce jour.";
+  else{
+    let txt=`${items.length} créneau${items.length>1?"x":""} · ${durTxt(total)} planifiés · ${done} fait${done>1?"s":""}`;
+    sum.textContent=txt;
+    if(mapDay===todayKey()){ const now=nowMinutes(), nx=items.find(it=>it.start+it.dur>now&&!itemDone(it)); if(nx){ const br=document.createElement("br"), b=document.createElement("b"); b.textContent=nx.start<=now?`En cours : ${itemTitle(nx)}`:`Prochaine étape à ${hhmm(nx.start)} : ${itemTitle(nx)}`; sum.append(br,b); } }
+  }
+  const ul=$("#itin-list"); ul.innerHTML="";
+  items.forEach(it=>{
+    const li=document.createElement("li"); li.className="it"+(itemDone(it)?" done":"")+(mapSel===it.id?" sel":""); li.style.setProperty("--pc",itemColor(it));
+    li.innerHTML=`<button type="button" class="ck" role="checkbox" aria-checked="${itemDone(it)}" aria-label="Marquer comme fait"></button><span class="tm">${hhmm(it.start)}–${hhmm(it.start+it.dur)}</span><span class="ti"><b></b><span></span></span>`;
+    li.querySelector("b").textContent=itemTitle(it); li.querySelector(".ti span").textContent=itemSub(it);
+    li.querySelector(".ck").onclick=e=>{ e.stopPropagation(); toggleItemDone(it); };
+    li.onclick=()=>selectItem(it.id,true); li.ondblclick=()=>openEv(it);
+    ul.appendChild(li);
+  });
+  const det=$("#itin-detail"), it=items.find(x=>x.id===mapSel);
+  if(!it){ det.hidden=true; det.innerHTML=""; }
+  else{
+    det.hidden=false; det.innerHTML=`<span class="dt"></span><span class="dm"></span><span class="dm"></span><div class="acts"></div>`;
+    det.querySelector(".dt").textContent=itemTitle(it);
+    const dms=det.querySelectorAll(".dm"); dms[0].textContent=`${hhmm(it.start)} → ${hhmm(it.start+it.dur)} · ${durTxt(it.dur)}`; dms[1].textContent=itemSub(it);
+    const acts=det.querySelector(".acts");
+    acts.appendChild(hint("A",itemDone(it)?"Pas encore fait":"C'est fait",()=>toggleItemDone(it)));
+    acts.appendChild(hint("E","Modifier",()=>openEv(it)));
+    if(it.questId&&itemQuest(it)) acts.appendChild(hint("⏎","Voir dans le journal",()=>openInJournal(it)));
+    acts.appendChild(hint("Suppr","Retirer",()=>removeItem(it),"danger"));
+  }
+  const pb=$("#proposal-box"); pb.innerHTML="";
+  if(proposal){
+    const box=document.createElement("div"); box.className="proposal";
+    box.innerHTML=`<h3>Proposition de Gemini</h3><span class="msg">Décoche ce que tu ne veux pas, puis ajoute le reste.</span>`;
+    proposal.forEach(p=>{ const l=document.createElement("label"); l.innerHTML=`<input type="checkbox"><span class="tm">${hhmm(p.start)}–${hhmm(p.start+p.dur)}</span><span></span>`; const cb=l.querySelector("input"); cb.checked=p.accept; l.lastChild.textContent=itemTitle(p); cb.onchange=()=>{ p.accept=cb.checked; drawRoute(); renderPins(); }; box.appendChild(l); });
+    const acts=document.createElement("div"); acts.className="acts";
+    const ok=document.createElement("button"); ok.className="btn cyan"; ok.textContent="Ajouter au planning"; ok.onclick=acceptProposal;
+    const no=document.createElement("button"); no.className="btn ghost"; no.textContent="Annuler"; no.onclick=()=>{ proposal=null; renderMap(); };
+    acts.append(ok,no); box.appendChild(acts); pb.appendChild(box);
+  }
+  const un=$("#unplaced"); un.innerHTML="";
+  const placed=new Set(items.filter(x=>x.questId).map(x=>x.questId));
+  const free=quests.filter(q=>q.cat!=="mem"&&!q.done&&!placed.has(q.id)).sort((a,b)=>(a.cat===b.cat?(a.created||0)-(b.created||0):a.cat==="main"?-1:1));
+  if(!free.length){ const li=document.createElement("li"); li.className="none"; li.textContent=quests.some(q=>q.cat!=="mem"&&!q.done)?"Toutes tes quêtes en cours sont placées ce jour-là.":"Aucune quête en cours dans ton journal."; un.appendChild(li); }
+  free.forEach(q=>{
+    const li=document.createElement("li"); li.draggable=true; li.style.setProperty("--pc",q.cat==="side"?"#5ec6ee":"#e8c766");
+    li.innerHTML=`<span class="ic">${ICON[q.cat]}</span><b></b><button type="button">Placer</button>`; li.querySelector("b").textContent=q.title;
+    li.querySelector("button").onclick=()=>openEv(null,{kind:"quest",questId:q.id});
+    li.addEventListener("dragstart",e=>{ dragQuest=q.id; e.dataTransfer.effectAllowed="copy"; try{ e.dataTransfer.setData("text/plain",q.title); }catch(x){} });
+    li.addEventListener("dragend",()=>{ dragQuest=null; hideDropGhost(); });
+    un.appendChild(li);
+  });
+}
+function renderDayNav(){
+  const d=parseKey(mapDay), t=todayKey(), diff=Math.round((d-parseKey(t))/86400000);
+  $("#day-label").textContent=d.toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"});
+  const rel=$("#day-rel"); rel.innerHTML="";
+  if(diff===0) rel.textContent="Aujourd'hui";
+  else{ const b=document.createElement("button"); b.className="today"; b.textContent=diff===1?"Demain · revenir à aujourd'hui":diff===-1?"Hier · revenir à aujourd'hui":`${diff>0?"Dans "+diff:"Il y a "+(-diff)} jours · revenir à aujourd'hui`; b.onclick=()=>goDay(t); rel.appendChild(b); }
+}
+function renderMapHints(){
+  if(view!=="map") return;
+  const H=$("#hints"); H.innerHTML="";
+  H.appendChild(hint("← →","Changer de jour",()=>goDay(addDays(mapDay,1))));
+  H.appendChild(hint("N","Ajouter un créneau",()=>openEv(null)));
+  H.appendChild(hint("G","Organiser avec Gemini",()=>planWithAI()));
+  H.appendChild(hint("M","Journal",()=>setView("log",true)));
+}
+function ensureMap(){
+  const box=$("#mapbox"), W=Math.round(box.clientWidth), H=Math.round(box.clientHeight); if(!W||!H) return false;
+  if(W!==MapS.W||H!==MapS.H||MapS.key!==mapDay){ MapS.W=W; MapS.H=H; MapS.key=mapDay; MapS.route=buildRoute(mapDay,W,H); drawTerrain(mapDay); }
+  return true;
+}
+function renderMap(){
+  if(view!=="map") return;
+  if(!mapDay) mapDay=todayKey();
+  renderDayNav();
+  if(ensureMap()){ drawRoute(); renderPins(); }
+  renderItin(); renderMapHints();
+}
+function selectItem(id,sound){ mapSel=mapSel===id&&!sound?null:id; if(sound) SFX.move(); renderPins(); renderItin(); }
+function goDay(k){ if(k===mapDay) return; mapDay=k; mapSel=null; proposal=null; SFX.tab(); const mb=$("#mapbox"); mb.classList.remove("fading"); void mb.offsetWidth; mb.classList.add("fading"); renderMap(); }
+function toggleItemDone(it){
+  const q=itemQuest(it);
+  if(it.kind==="quest"&&q){
+    if(it.stepId&&q.tasks){ const i=q.tasks.findIndex(t=>t.id===it.stepId); if(i>=0){ toggleStep(q.id,i); renderMap(); return; } }
+    toggleDone(q); renderMap(); return;
+  }
+  it.done=!it.done; if(it.done) SFX.check(); else SFX.move(); commitItem();
+}
+function removeItem(it){
+  const k=mapDay; saveDay(k,(plans[k]||[]).filter(x=>x.id!==it.id)); if(mapSel===it.id) mapSel=null; renderMap(); toast(`« ${itemTitle(it)} » retiré de l'itinéraire.`);
+}
+function openInJournal(it){ const q=itemQuest(it); if(!q) return; setView("log",true); if(cat!==q.cat) setCat(q.cat,false); select(q.id,false); }
+function placeQuestAt(qid,start){
+  const q=quests.find(x=>x.id===qid); if(!q) return;
+  const dur=60, s=Math.max(DAY0,Math.min(DAY1-dur,start));
+  const it={id:planId(),kind:"quest",questId:q.id,title:q.title,start:s,dur};
+  const list=(plans[mapDay]||[]).concat([it]); mapSel=it.id; SFX.check(); saveDay(mapDay,list);
+  toast(`« ${q.title} » placé à ${hhmm(s)}. Glisse le point sur le chemin pour ajuster l'heure.`);
+}
+
+/* --- Glisser une quête sur la carte --- */
+function showDropGhost(x,y,m){ let g=$("#mapbox .drop-ghost"); if(!g){ g=document.createElement("div"); g.className="drop-ghost"; g.innerHTML="<span></span>"; $("#mapbox").appendChild(g); } g.style.left=x+"px"; g.style.top=y+"px"; g.firstChild.textContent=hhmm(m); }
+function hideDropGhost(){ const g=$("#mapbox .drop-ghost"); if(g) g.remove(); }
+$("#mapbox").addEventListener("dragover",e=>{
+  if(!dragQuest||!MapS.route) return; e.preventDefault(); e.dataTransfer.dropEffect="copy";
+  const r=$("#mapbox").getBoundingClientRect(); let m=snap15(timeAt(MapS.route,e.clientX-r.left,e.clientY-r.top)); m=Math.max(DAY0,Math.min(DAY1-60,m));
+  const [x,y]=posAt(MapS.route,m); showDropGhost(x,y,m);
+});
+$("#mapbox").addEventListener("dragleave",e=>{ if(!$("#mapbox").contains(e.relatedTarget)) hideDropGhost(); });
+$("#mapbox").addEventListener("drop",e=>{
+  if(!dragQuest||!MapS.route) return; e.preventDefault();
+  const r=$("#mapbox").getBoundingClientRect(); const m=snap15(timeAt(MapS.route,e.clientX-r.left,e.clientY-r.top));
+  const qid=dragQuest; dragQuest=null; hideDropGhost(); placeQuestAt(qid,m);
+});
+
+/* --- Fenêtre « créneau » --- */
+let evEdit=null, evKind="meal";
+const DURS=[15,30,45,60,75,90,120,150,180,240,300];
+$("#ev-dur").innerHTML=DURS.map(d=>`<option value="${d}">${durTxt(d)}</option>`).join("");
+function renderKindPick(){
+  const box=$("#ev-kind"); box.innerHTML="";
+  Object.keys(KINDS).forEach(k=>{ const b=document.createElement("button"); b.type="button"; b.setAttribute("role","radio"); b.setAttribute("aria-checked",evKind===k); b.style.setProperty("--pc",KINDS[k].color); b.innerHTML=KINDS[k].icon+"<span></span>"; b.lastChild.textContent=KINDS[k].label; b.onclick=()=>{ evKind=k; renderKindPick(); }; box.appendChild(b); });
+  const isQ=evKind==="quest"; $("#ev-quest-row").hidden=!isQ; $("#ev-title-f").hidden=isQ;
+  $("#ev-title").placeholder=KIND_PH[evKind]||"";
+  if(isQ) fillQuestSelect();
+}
+function fillQuestSelect(keepQ,keepS){
+  const sel=$("#ev-quest"), cur=keepQ||sel.value, list=quests.filter(q=>q.cat!=="mem"&&(!q.done||q.id===cur));
+  sel.innerHTML=""; if(!list.length){ const o=document.createElement("option"); o.value=""; o.textContent="Aucune quête en cours"; sel.appendChild(o); }
+  list.forEach(q=>{ const o=document.createElement("option"); o.value=q.id; o.textContent=(q.cat==="side"?"◇ ":"◆ ")+q.title; sel.appendChild(o); });
+  if(cur&&list.some(q=>q.id===cur)) sel.value=cur;
+  fillStepSelect(keepS);
+}
+function fillStepSelect(keepS){
+  const q=quests.find(x=>x.id===$("#ev-quest").value), sel=$("#ev-step"), cur=keepS!==undefined?keepS:sel.value;
+  sel.innerHTML=`<option value="">Toute la quête</option>`;
+  ((q&&q.tasks)||[]).forEach((t,i)=>{ if(t.done&&t.id!==cur) return; const o=document.createElement("option"); o.value=t.id; o.textContent=`${i+1}. ${t.text}`; sel.appendChild(o); });
+  sel.value=cur&&[...sel.options].some(o=>o.value===cur)?cur:""; sel.disabled=!(q&&q.tasks&&q.tasks.length);
+}
+$("#ev-quest").onchange=()=>fillStepSelect("");
+function openEv(it,preset){
+  evEdit=it||null; const p=it||preset||{};
+  evKind=p.kind&&KINDS[p.kind]?p.kind:"meal";
+  $("#ev-h").textContent=it?"Modifier le créneau":"Nouveau créneau";
+  $("#ev-title").value=it&&it.kind!=="quest"?it.title||"":"";
+  $("#ev-place").value=p.place||"";
+  const dur=p.dur||60; $("#ev-dur").value=String(DURS.includes(dur)?dur:60);
+  if(!DURS.includes(dur)&&it){ const o=document.createElement("option"); o.value=dur; o.textContent=durTxt(dur); $("#ev-dur").appendChild(o); $("#ev-dur").value=String(dur); }
+  $("#ev-start").value=hhmm(p.start!=null?p.start:nextFree(dur));
+  $("#ev-err").textContent=""; $("#ev-del").hidden=!it;
+  $("#ev-save").lastChild.textContent=it?"Enregistrer":"Placer sur la carte";
+  renderKindPick(); if(evKind==="quest") fillQuestSelect(p.questId,p.stepId||"");
+  showModal("#m-ev"); setTimeout(()=>{ (evKind==="quest"?$("#ev-quest"):$("#ev-title")).focus(); },30);
+}
+$("#evform").addEventListener("submit",e=>{
+  e.preventDefault();
+  let start=hm2($("#ev-start").value), dur=+$("#ev-dur").value;
+  if(start==null){ $("#ev-err").textContent="Indique une heure de début."; return; }
+  if(start<DAY0||start>=DAY1){ $("#ev-err").textContent="Ta journée va de 06:00 à 22:00 : choisis une heure dans cet intervalle."; return; }
+  if(start+dur>DAY1) dur=DAY1-start;
+  const o={id:evEdit?evEdit.id:planId(),kind:evKind,start,dur,place:$("#ev-place").value};
+  if(evKind==="quest"){ const q=quests.find(x=>x.id===$("#ev-quest").value); if(!q){ $("#ev-err").textContent="Choisis une quête (ou un autre type de créneau)."; return; }
+    o.questId=q.id; const sid=$("#ev-step").value; if(sid) o.stepId=sid; const st=sid&&q.tasks?q.tasks.find(t=>t.id===sid):null; o.title=st?st.text:q.title; }
+  else o.title=$("#ev-title").value.trim()||KINDS[evKind].label;
+  if(evEdit&&evEdit.done&&evKind!=="quest") o.done=true;
+  const it=cleanItem(o); if(!it) return;
+  const list=(plans[mapDay]||[]).filter(x=>x.id!==it.id).concat([it]);
+  const clash=list.find(x=>x.id!==it.id&&it.start<x.start+x.dur&&x.start<it.start+it.dur);
+  mapSel=it.id; SFX.save(); hideModal(); saveDay(mapDay,list);
+  toast(clash?`Créneau placé. Attention, il chevauche « ${itemTitle(clash)} ».`:(evEdit?"Créneau modifié.":`Créneau placé à ${hhmm(it.start)}.`));
+});
+$("#ev-cancel").onclick=hideModal;
+$("#ev-del").onclick=()=>{ const it=evEdit; hideModal(); if(it) removeItem(it); };
+
+/* --- Gemini organise la journée --- */
+function parseJSONArray(t){ const a=t.indexOf("["), b=t.lastIndexOf("]"); if(a<0||b<a) throw aiError("empty"); let arr; try{ arr=JSON.parse(t.slice(a,b+1)); }catch(e){ throw aiError("empty"); } if(!Array.isArray(arr)) throw aiError("empty"); return arr.slice(0,12); }
+async function planWithAI(){
+  if(planBusy) return;
+  if(!aiCfg.key){ toast(aiMsg({code:"no_key"})); return; }
+  const k=mapDay, isToday=k===todayKey(), from=isToday?Math.max(DAY0,Math.ceil((nowMinutes()+10)/15)*15):DAY0;
+  if(k<todayKey()){ toast("Ce jour est passé : choisis aujourd'hui ou un jour à venir."); return; }
+  if(from>DAY1-30){ toast("Il ne reste plus assez de temps avant 22 h. Essaie pour demain."); return; }
+  const fixed=dayItems(k).map(it=>`- ${hhmm(it.start)}–${hhmm(it.start+it.dur)} : ${itemTitle(it)}`).join("\n")||"(aucun)";
+  const placed=new Set(dayItems(k).filter(x=>x.questId&&!x.stepId).map(x=>x.questId));
+  const active=quests.filter(q=>q.cat!=="mem"&&!q.done&&!placed.has(q.id)).slice(0,25);
+  const qlist=active.map(q=>{ const steps=(q.tasks||[]).filter(t=>!t.done).slice(0,8).map(t=>`    · étape ${t.id} : ${t.text}`).join("\n"); return `- quête ${q.id} (${catOf(q.cat).one}) : ${q.title}${q.place?" · lieu : "+q.place:""}${steps?"\n"+steps:""}`; }).join("\n")||"(aucune)";
+  const prompt=[
+    `Tu aides une personne à organiser sa journée du ${parseKey(k).toLocaleDateString("fr-FR",{weekday:"long",day:"numeric",month:"long"})}, entre ${hhmm(from)} et 22:00.`,
+    "Créneaux déjà prévus (ne pas les déplacer ni les chevaucher) :", fixed, "",
+    "Quêtes en cours, avec leurs étapes restantes :", qlist, "",
+    "Propose un planning réaliste de 3 à 8 nouveaux créneaux. Commence par les quêtes principales, garde les quêtes secondaires pour les moments plus calmes. Ajoute un déjeuner (vers 12:00–13:30) et un dîner (vers 19:00–20:30) s'ils ne sont pas déjà prévus et s'ils tombent dans l'intervalle, ainsi qu'une ou deux pauses. Durées en multiples de 15 minutes, entre 15 et 180. Aucun chevauchement. Tout doit se terminer avant 22:00.",
+    'Réponds uniquement par un tableau JSON, sans texte autour, de la forme : [{"questId":"id ou null","stepId":"id ou null","kind":"quest|meal|break|sport|meeting|other","title":"titre court en français","start":"HH:MM","minutes":60}]. Pour une quête, recopie exactement son id, et celui de l\'étape si tu planifies une étape précise.'
+  ].join("\n");
+  planBusy=true; const btn=$("#plan-ai"), t0=Date.now(); btn.disabled=true;
+  const tick=()=>{ btn.textContent=`✦ Gemini trace ton itinéraire… ${Math.round((Date.now()-t0)/1000)} s`; }; tick(); const iv=setInterval(tick,1000);
+  try{
+    const text=await gemini(prompt,{timeoutMs:90000});
+    const items=parseJSONArray(text).map(o=>{
+      if(!o||typeof o!=="object") return null; const st=hm2(o.start); if(st==null) return null;
+      const qid=o.questId&&o.questId!=="null"?String(o.questId):null, q=qid?quests.find(x=>x.id===qid):null;
+      const kind=q?"quest":(KINDS[o.kind]&&o.kind!=="quest"?o.kind:"other");
+      const it={id:planId(),kind,start:st,dur:Math.max(15,Math.min(180,snap15(+o.minutes||60)))};
+      if(q){ it.questId=q.id; it.title=q.title; const sid=o.stepId&&o.stepId!=="null"?String(o.stepId):null; const stp=sid&&q.tasks?q.tasks.find(t=>t.id===sid):null; if(stp){ it.stepId=stp.id; it.title=stp.text; } }
+      else it.title=String(o.title||KINDS[kind].label).slice(0,80);
+      return cleanItem(it);
+    }).filter(it=>it&&it.start>=from&&it.start+it.dur<=DAY1&&!(it.questId&&!it.stepId&&dayItems(k).some(x=>x.questId===it.questId&&!x.stepId)));
+    if(!items.length) throw aiError("empty");
+    if(mapDay!==k) return;
+    proposal=items.map(it=>Object.assign(it,{accept:true})); SFX.save(); renderMap();
+  }catch(e){ toast(aiMsg(e,true)); }
+  finally{ clearInterval(iv); planBusy=false; btn.disabled=false; btn.textContent="✦ Organiser ma journée"; }
+}
+function acceptProposal(){
+  if(!proposal) return;
+  const add=proposal.filter(p=>p.accept).map(p=>{ const c=Object.assign({},p); delete c.accept; delete c.ghost; return cleanItem(c); }).filter(Boolean);
+  proposal=null; if(!add.length){ renderMap(); return; }
+  SFX.check(); saveDay(mapDay,(plans[mapDay]||[]).concat(add)); toast(`${add.length} créneau${add.length>1?"x":""} ajouté${add.length>1?"s":""} à ton itinéraire.`);
+}
+
+/* --- Passer d'un écran à l'autre --- */
+function setView(v,sound){
+  if(v===view) return; view=v;
+  $("#view-log").hidden=v!=="log"; $("#view-map").hidden=v!=="map";
+  const inn=$("#view-"+v); inn.classList.remove("enter-l","enter-r"); void inn.offsetWidth; inn.classList.add(v==="map"?"enter-l":"enter-r");
+  document.body.classList.toggle("map-on",v==="map");
+  $("#screen-title").textContent=v==="map"?"Carte du jour":"Journal d'aventure";
+  $("#go-map-ic").innerHTML=v==="map"?BOOKICON:MAPICON; $("#go-map-l").textContent=v==="map"?"Journal":"Carte";
+  if(sound){ SFX.slate(); const sw=document.createElement("div"); sw.className="slate-sweep"; document.body.appendChild(sw); setTimeout(()=>sw.remove(),650); }
+  local.set("view",v);
+  if(v==="map"){ if(!mapDay) mapDay=todayKey(); requestAnimationFrame(renderMap); }
+  else { renderAll(); }
+}
+$("#go-map").onclick=()=>setView(view==="map"?"log":"map",true);
+$("#day-prev").onclick=()=>goDay(addDays(mapDay,-1));
+$("#day-next").onclick=()=>goDay(addDays(mapDay,1));
+$("#ev-add").onclick=()=>openEv(null);
+$("#plan-ai").onclick=planWithAI;
+if(window.ResizeObserver) new ResizeObserver(()=>{ if(view==="map") renderMap(); }).observe($("#mapbox"));
+if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ MapS.key=null; if(view==="map") renderMap(); });
+function mapKey(e){
+  const k=e.key.toLowerCase(), items=dayItems(mapDay), i=items.findIndex(x=>x.id===mapSel), it=i>=0?items[i]:null;
+  if(e.key==="ArrowLeft"){ e.preventDefault(); goDay(addDays(mapDay,-1)); }
+  else if(e.key==="ArrowRight"){ e.preventDefault(); goDay(addDays(mapDay,1)); }
+  else if(e.key==="ArrowDown"){ e.preventDefault(); if(items.length) selectItem(items[(i+1)%items.length].id,true); }
+  else if(e.key==="ArrowUp"){ e.preventDefault(); if(items.length) selectItem(items[(i-1+items.length)%items.length].id,true); }
+  else if(k==="n"){ e.preventDefault(); openEv(null); }
+  else if(k==="e"){ if(it) openEv(it); }
+  else if(k==="a"||e.key===" "){ if(it){ e.preventDefault(); toggleItemDone(it); } }
+  else if(e.key==="Delete"){ if(it) removeItem(it); }
+  else if(k==="t"){ goDay(todayKey()); }
+  else if(k==="g"){ planWithAI(); }
+  else if(k==="m"){ setView("log",true); }
+  else if(k==="r"){ $("#open-settings").click(); }
+  else if(e.key==="Enter"&&!e.target.closest("button")){ if(it&&it.questId) openInJournal(it); }
+}
+
 /* ================= Clavier ================= */
 addEventListener("keydown",e=>{
   if(e.key==="Escape"&&openModal){ e.preventDefault(); if(openModal==="#m-form") $("#qf-cancel").click(); else hideModal(); return; }
@@ -1790,6 +2429,7 @@ addEventListener("keydown",e=>{
   if(openModal||document.getElementById("night")||fxEl) return;
   if(e.target.closest("input,textarea,select")) return;
   if(e.ctrlKey||e.metaKey||e.altKey) return;
+  if(view==="map"){ mapKey(e); return; }
   const ci=CATS.findIndex(c=>c.id===cat), q=current(), k=e.key.toLowerCase();
   if(e.key==="ArrowDown"){ e.preventDefault(); step(1); }
   else if(e.key==="ArrowUp"){ e.preventDefault(); step(-1); }
@@ -1799,6 +2439,7 @@ addEventListener("keydown",e=>{
   else if(k==="a"){ if(q&&q.cat!=="mem") toggleDone(q); }
   else if(k==="e"){ if(q) openForm(q); }
   else if(k==="n"){ e.preventDefault(); openForm(null); }
+  else if(k==="m"){ setView("map",true); }
   else if(k==="r"){ $("#open-settings").click(); }
   else if(/^[1-9]$/.test(e.key)){ if(q&&q.cat!=="mem"&&q.tasks&&q.tasks[+e.key-1]){ e.preventDefault(); toggleStep(q.id,+e.key-1); } }
   else if(e.key==="Delete"){ if(q){ e.preventDefault(); askDelete(q); } }
@@ -1808,6 +2449,7 @@ addEventListener("keydown",e=>{
 applySettings(); renderAll(); renderHearts();
 setInterval(renderHearts,20000);
 addEventListener("resize",()=>{ placeFrame(); renderTabs(); });
+if(local.get("view","log")==="map") setView("map",false);
 Store.init();
 document.addEventListener("visibilitychange",()=>{ if(document.hidden&&Disk.state==="ok"&&Disk.timer){ clearTimeout(Disk.timer); Disk.timer=0; Disk.write(); } });
 if("serviceWorker" in navigator&&(location.protocol==="https:"||location.hostname==="localhost")) navigator.serviceWorker.register("sw.js").catch(()=>{});
