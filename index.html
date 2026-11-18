@@ -705,7 +705,7 @@ a.hint{text-decoration:none}
       <h3>Google Agenda · lecture seule</h3>
       <p class="msg">Les rendez-vous de ton agenda principal s'affichent sur la carte. Le site peut seulement les lire, jamais les modifier. Tout se passe entre ton navigateur et Google.</p>
       <label class="field"><span class="lab">ID client OAuth Google (se termine par .apps.googleusercontent.com)</span><input id="gc-client" autocomplete="off" spellcheck="false" placeholder="123456789012-abc….apps.googleusercontent.com"></label>
-      <p class="msg">Origine JavaScript à déclarer dans Google Cloud : <b id="gc-origin"></b></p>
+      <p class="msg">À déclarer dans ton client Google Cloud :<br>· Origine JavaScript autorisée : <b id="gc-origin"></b><br>· URI de redirection autorisé : <b id="gc-redirect"></b></p>
       <div class="testrow"><button type="button" class="btn" id="gc-connect">Se connecter à Google</button><button type="button" class="btn ghost" id="gc-disconnect" hidden>Se déconnecter</button></div>
       <span class="msg" id="gc-msg"></span>
       <details class="gc-tech"><summary>Détails techniques (pour le dépannage)</summary><pre id="gc-log">Aucun événement pour l'instant.</pre></details>
@@ -858,6 +858,7 @@ const Store={
     if(this.mode!=="idb"){ quests=EXAMPLES.map(q=>Object.assign({},q)); setStatus("Ce navigateur bloque la sauvegarde : tes changements seront perdus en fermant la page."); }
     else setStatus("");
     ready=true; applySettings(); renderAll(); renderSave();
+    try{ gcHandleRedirect(); }catch(e){}
   },
   track(p){
     this.pending++; renderSave();
@@ -1895,7 +1896,7 @@ function renderSettings(){
   if(document.activeElement!==$("#ai-key")) $("#ai-key").value=aiCfg.key||"";
   if(document.activeElement!==$("#ai-model")) $("#ai-model").value=aiCfg.model||"gemini-flash-latest";
   if(document.activeElement!==$("#gc-client")) $("#gc-client").value=GCal.clientId||"";
-  $("#gc-origin").textContent=location.origin;
+  $("#gc-origin").textContent=location.origin; $("#gc-redirect").textContent=GCal.redirectUri();
   $("#gc-disconnect").hidden=!GCal.connected()&&!local.get("gcalEver",false);
   $("#gc-connect").textContent=GCal.connected()?"Synchroniser maintenant":"Se connecter à Google";
   if(!$("#gc-msg").textContent) $("#gc-msg").textContent=GCal.connected()?`Connecté jusqu'à ${hm(GCal.exp)} (ensuite, un clic suffit pour te reconnecter).`:(GCal.configured()?"Pas connecté pour l'instant.":"");
@@ -1924,11 +1925,10 @@ function renderSettings(){
   $("#imp-dir").hidden=!Disk.ok;
   const nEx=quests.filter(q=>q.example).length; $("#rm-examples").disabled=!nEx; $("#rm-msg").textContent=nEx?`${nEx} quête${nEx>1?"s":""} d'exemple dans le journal.`:"Aucune quête d'exemple.";
 }
-$("#open-settings").onclick=()=>{ $("#gc-msg").textContent=gcStatus&&!GCal.connected()?gcStatus.t:""; $("#gc-msg").className="msg"+(gcStatus&&gcStatus.err&&!GCal.connected()?" err":""); const lg=document.getElementById("gc-log"); if(lg&&gcJournal.length) lg.textContent=gcJournal.join("\n"); renderSettings(); renderBackups(); showModal("#m-set"); if(GCal.configured()) GCal.loadGis().catch(()=>{}); };
-$("#gc-client").addEventListener("input",()=>{ const v=$("#gc-client").value.trim(); if(/\.apps\.googleusercontent\.com$/.test(v)) GCal.loadGis().catch(()=>{}); });
+$("#open-settings").onclick=()=>{ $("#gc-msg").textContent=gcStatus&&!GCal.connected()?gcStatus.t:""; $("#gc-msg").className="msg"+(gcStatus&&gcStatus.err&&!GCal.connected()?" err":""); const lg=document.getElementById("gc-log"); if(lg&&gcJournal.length) lg.textContent=gcJournal.join("\n"); renderSettings(); renderBackups(); showModal("#m-set"); };
 $("#gc-connect").onclick=async ()=>{
   const v=$("#gc-client").value.trim(), m=$("#gc-msg");
-  if(v!==GCal.clientId){ GCal.clientId=v; GCal.tokenClient=null; GCal.persist(); }
+  if(v!==GCal.clientId){ GCal.clientId=v; GCal.tokenClient=null; await GCal.persist(); }
   if(!GCal.configured()){ m.className="msg err"; m.textContent="Cet ID ne ressemble pas à un ID client Google : il doit se terminer par « .apps.googleusercontent.com »."; return; }
   await gcConnectClick(m);
 };
@@ -2023,6 +2023,7 @@ function gcMsg(e){
     case "denied": return "Tu as refusé l'accès à ton agenda.";
     case "scope": return "L'accès à l'agenda n'a pas été accordé. Reconnecte-toi et coche la case Google Agenda dans la fenêtre de Google.";
     case "popup": return "Chrome a bloqué la fenêtre de connexion Google. Clique à nouveau sur le bouton (ou autorise les fenêtres pop-up pour ce site).";
+    case "redirect": return "Google refuse l'adresse de retour : ajoute l'« URI de redirection autorisé » indiqué dans Réglages à ton client Google Cloud.";
     case "closed": return "Fenêtre de connexion fermée avant la fin. Si Google affichait une erreur comme « invalid_client » ou « origin_mismatch », vérifie l'ID client et l'origine déclarée dans Google Cloud.";
     case "expired": return "La connexion à Google a expiré : reconnecte-toi.";
     case "api_off": return "L'API Google Calendar n'est pas activée dans ton projet Google Cloud : Bibliothèque → « Google Calendar API » → Activer.";
@@ -2046,7 +2047,34 @@ const GCal={
   async init(){
     if(Store.mode==="idb"){ const c=await IDB.get("kv","gcal").catch(()=>null); if(c){ this.clientId=typeof c.clientId==="string"?c.clientId:""; this.cache=c.cache&&typeof c.cache==="object"?c.cache:{}; } }
     try{ const t=JSON.parse(localStorage.getItem("gcalToken")||"null"); if(t&&t.exp>Date.now()+60000){ this.token=t.token; this.exp=t.exp; } else localStorage.removeItem("gcalToken"); }catch(e){}
-    if(this.configured()&&local.get("view","log")==="map") this.loadGis().catch(()=>{});
+    this.redirectResult=this.readRedirect();
+  },
+  /* Connexion par redirection : le site ouvre la page Google puis Google renvoie ici avec l'autorisation. */
+  redirectUri(){ return location.origin+location.pathname.replace(/index\.html$/,""); },
+  startRedirect(){
+    if(!this.configured()) throw gcErr("no_client");
+    const st=Math.random().toString(36).slice(2)+Date.now().toString(36);
+    try{ localStorage.setItem("gcalState",JSON.stringify({st,at:Date.now(),day:mapDay||todayKey(),view,cid:this.clientId})); }catch(e){}
+    const q=new URLSearchParams({client_id:this.clientId,redirect_uri:this.redirectUri(),response_type:"token",scope:GC_SCOPE,include_granted_scopes:"true",state:st});
+    if(!local.get("gcalEver",false)) q.set("prompt","consent");
+    gcLog("Ouverture de la page de connexion Google");
+    location.assign("https://accounts.google.com/o/oauth2/v2/auth?"+q.toString());
+  },
+  readRedirect(){
+    const h=location.hash||""; if(h.length<2||!/(^#|&)(access_token|error)=/.test(h)) return null;
+    const ps=new URLSearchParams(h.slice(1));
+    try{ history.replaceState(null,"",location.pathname+location.search); }catch(e){}
+    let saved=null; try{ saved=JSON.parse(localStorage.getItem("gcalState")||"null"); localStorage.removeItem("gcalState"); }catch(e){}
+    if(saved&&saved.cid&&!this.configured()){ this.clientId=String(saved.cid); this.persist(); }
+    if(!saved||ps.get("state")!==saved.st||Date.now()-saved.at>30*60000) return {err:gcErr("oauth","réponse de Google inattendue (code de sécurité différent) : relance la connexion"),saved};
+    if(ps.get("error")) return {err:gcErr(ps.get("error")==="access_denied"?"denied":"oauth",ps.get("error")),saved};
+    const granted=(ps.get("scope")||"").split(/[ +]/);
+    if(!granted.includes(GC_SCOPE)) return {err:gcErr("scope","autorisations reçues : "+(ps.get("scope")||"aucune")),saved};
+    const tok=ps.get("access_token"); if(!tok) return {err:gcErr("oauth","aucune autorisation reçue"),saved};
+    this.token=tok; this.exp=Date.now()+(+ps.get("expires_in")||3600)*1000;
+    try{ localStorage.setItem("gcalToken",JSON.stringify({token:this.token,exp:this.exp})); }catch(e){}
+    local.set("gcalEver",true);
+    return {ok:true,saved};
   },
   async persist(){
     const lim=addDays(todayKey(),-14); Object.keys(this.cache).forEach(k=>{ if(k<lim) delete this.cache[k]; });
@@ -2095,7 +2123,7 @@ const GCal={
     if(p) p.rej(gcErr(t==="popup_failed_to_open"?"popup":"oauth",e&&e.message));
   },
   disconnect(){
-    if(this.token&&window.google&&google.accounts&&google.accounts.oauth2){ try{ google.accounts.oauth2.revoke(this.token,()=>{}); }catch(e){} }
+    if(this.token){ try{ fetch("https://oauth2.googleapis.com/revoke?token="+encodeURIComponent(this.token),{method:"POST",mode:"no-cors",headers:{"content-type":"application/x-www-form-urlencoded"}}).catch(()=>{}); }catch(e){} }
     this.token=null; this.exp=0; try{ localStorage.removeItem("gcalToken"); }catch(e){}
     this.cache={}; local.set("gcalEver",false); this.persist();
   },
@@ -2135,8 +2163,8 @@ function gcAutoFetch(){
   gcTry[k]=Date.now();
   GCal.fetchDay(k).then(()=>{ gcErrs[k]=null; if(mapDay===k) renderMap(); }).catch(e=>{ gcErrs[k]=gcMsg(e); if(mapDay===k) renderMap(); });
 }
-const gcJournal=[];
-function gcLog(t){ gcJournal.push(`${new Date().toLocaleTimeString("fr-FR")} · ${t}`); if(gcJournal.length>12) gcJournal.shift(); const el=document.getElementById("gc-log"); if(el) el.textContent=gcJournal.join("\n"); }
+const gcJournal=local.get("gcalLog",[]);
+function gcLog(t){ gcJournal.push(`${new Date().toLocaleTimeString("fr-FR")} · ${t}`); while(gcJournal.length>12) gcJournal.shift(); local.set("gcalLog",gcJournal); const el=document.getElementById("gc-log"); if(el) el.textContent=gcJournal.join("\n"); }
 let gcStatus=null;
 function gcShow(t,err,msgEl){ gcStatus={t,err}; const el=msgEl||document.getElementById("gc-msg"); if(el){ el.className="msg"+(err?" err":" ok"); el.textContent=t; } renderGcalBox(); }
 async function gcAfterConnect(msgEl){
@@ -2147,14 +2175,15 @@ async function gcAfterConnect(msgEl){
 }
 function gcLate(err){ if(err){ gcShow(gcMsg(err),true); toast(gcMsg(err)); return; } toast("Google Agenda connecté."); gcAfterConnect(null); }
 async function gcConnectClick(msgEl){
-  try{
-    if(!GCal.connected()){
-      gcShow("Connexion à Google… termine la connexion dans la fenêtre Google.",false,msgEl);
-      GCal.onSoft=()=>gcShow("La fenêtre Google s'est fermée. Si tu as tout accepté, l'agenda va s'afficher dans quelques secondes…",false,msgEl);
-      await GCal.connect();
-    }
-  }catch(e){ gcShow(e&&e.code?gcMsg(e):gcMsg({code:"oauth",detail:String(e&&e.message||e)}),true,msgEl); renderMap(); if(!$("#m-set").hidden) renderSettings(); return; }
-  await gcAfterConnect(msgEl);
+  if(GCal.connected()) return gcAfterConnect(msgEl);
+  try{ gcShow("Ouverture de la page Google… Après avoir accepté, tu reviendras automatiquement ici.",false,msgEl); GCal.startRedirect(); }
+  catch(e){ gcShow(e&&e.code?gcMsg(e):gcMsg({code:"oauth",detail:String(e&&e.message||e)}),true,msgEl); }
+}
+function gcHandleRedirect(){
+  const r=GCal.redirectResult; if(!r) return; GCal.redirectResult=null;
+  if(r.saved&&r.saved.view==="map"){ if(r.saved.day) mapDay=r.saved.day; if(view!=="map") setView("map",false); else renderMap(); }
+  if(r.ok){ gcLog("Autorisation reçue, valable jusqu'à "+hm(GCal.exp)); toast("Google Agenda connecté."); gcAfterConnect(null); }
+  else { gcLog("Réponse de Google : "+(r.err.detail||r.err.code)); gcShow(gcMsg(r.err),true); toast(gcMsg(r.err)); }
 }
 function renderGcalBox(){
   const box=$("#gcal-box"); if(!box) return; box.innerHTML="";
@@ -2619,7 +2648,7 @@ function setView(v,sound){
   $("#go-map-ic").innerHTML=v==="map"?BOOKICON:MAPICON; $("#go-map-l").textContent=v==="map"?"Journal":"Carte";
   if(sound){ SFX.slate(); const sw=document.createElement("div"); sw.className="slate-sweep"; document.body.appendChild(sw); setTimeout(()=>sw.remove(),650); }
   local.set("view",v);
-  if(v==="map"){ if(!mapDay) mapDay=todayKey(); if(GCal.configured()) GCal.loadGis().catch(()=>{}); requestAnimationFrame(renderMap); }
+  if(v==="map"){ if(!mapDay) mapDay=todayKey(); requestAnimationFrame(renderMap); }
   else { renderAll(); }
 }
 $("#go-map").onclick=()=>setView(view==="map"?"log":"map",true);
