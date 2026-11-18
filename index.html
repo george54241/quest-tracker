@@ -408,6 +408,8 @@ a.hint{text-decoration:none}
 .gc-out{color:var(--ink);font-size:12px;line-height:1.45}
 .gc-out b{color:#ff9fd5;font-weight:700}
 .gc-err{color:#ff9b8f;font-size:12px;line-height:1.4}
+.gc-tech summary{cursor:pointer;font-size:11.5px;color:var(--muted)}
+.gc-tech pre{margin:6px 0 0;padding:8px 10px;background:rgba(0,0,0,.45);border:1px solid var(--line-soft);font-size:11px;white-space:pre-wrap;color:#cfd6e4;max-height:160px;overflow:auto}
 .gc-help{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);line-height:1.45}
 .gc-help b{color:var(--ink)}
 @media (max-width:900px){
@@ -706,6 +708,7 @@ a.hint{text-decoration:none}
       <p class="msg">Origine JavaScript à déclarer dans Google Cloud : <b id="gc-origin"></b></p>
       <div class="testrow"><button type="button" class="btn" id="gc-connect">Se connecter à Google</button><button type="button" class="btn ghost" id="gc-disconnect" hidden>Se déconnecter</button></div>
       <span class="msg" id="gc-msg"></span>
+      <details class="gc-tech"><summary>Détails techniques (pour le dépannage)</summary><pre id="gc-log">Aucun événement pour l'instant.</pre></details>
     </section>
     <section>
       <h3>Fond d'écran</h3>
@@ -1921,7 +1924,7 @@ function renderSettings(){
   $("#imp-dir").hidden=!Disk.ok;
   const nEx=quests.filter(q=>q.example).length; $("#rm-examples").disabled=!nEx; $("#rm-msg").textContent=nEx?`${nEx} quête${nEx>1?"s":""} d'exemple dans le journal.`:"Aucune quête d'exemple.";
 }
-$("#open-settings").onclick=()=>{ $("#gc-msg").textContent=""; renderSettings(); renderBackups(); showModal("#m-set"); if(GCal.configured()) GCal.loadGis().catch(()=>{}); };
+$("#open-settings").onclick=()=>{ $("#gc-msg").textContent=gcStatus&&!GCal.connected()?gcStatus.t:""; $("#gc-msg").className="msg"+(gcStatus&&gcStatus.err&&!GCal.connected()?" err":""); const lg=document.getElementById("gc-log"); if(lg&&gcJournal.length) lg.textContent=gcJournal.join("\n"); renderSettings(); renderBackups(); showModal("#m-set"); if(GCal.configured()) GCal.loadGis().catch(()=>{}); };
 $("#gc-client").addEventListener("input",()=>{ const v=$("#gc-client").value.trim(); if(/\.apps\.googleusercontent\.com$/.test(v)) GCal.loadGis().catch(()=>{}); });
 $("#gc-connect").onclick=async ()=>{
   const v=$("#gc-client").value.trim(), m=$("#gc-msg");
@@ -2042,7 +2045,7 @@ const GCal={
   clientId:"", token:null, exp:0, cache:{}, gisP:null, tokenClient:null, tcId:null, pending:null, fetching:{},
   async init(){
     if(Store.mode==="idb"){ const c=await IDB.get("kv","gcal").catch(()=>null); if(c){ this.clientId=typeof c.clientId==="string"?c.clientId:""; this.cache=c.cache&&typeof c.cache==="object"?c.cache:{}; } }
-    try{ const t=JSON.parse(sessionStorage.getItem("gcalToken")||"null"); if(t&&t.exp>Date.now()+60000){ this.token=t.token; this.exp=t.exp; } }catch(e){}
+    try{ const t=JSON.parse(localStorage.getItem("gcalToken")||"null"); if(t&&t.exp>Date.now()+60000){ this.token=t.token; this.exp=t.exp; } else localStorage.removeItem("gcalToken"); }catch(e){}
     if(this.configured()&&local.get("view","log")==="map") this.loadGis().catch(()=>{});
   },
   async persist(){
@@ -2064,20 +2067,36 @@ const GCal={
       this.tokenClient=google.accounts.oauth2.initTokenClient({client_id:this.clientId,scope:GC_SCOPE,callback:r=>this._done(r),error_callback:e=>this._fail(e)});
       this.tcId=this.clientId;
     }
+    clearTimeout(this.softTimer); this.pending=null;
+    gcLog("Demande d'accès envoyée à Google");
     return new Promise((res,rej)=>{ this.pending={res,rej}; this.tokenClient.requestAccessToken({prompt:local.get("gcalEver",false)?"":"consent"}); });
   },
   _done(r){
-    const p=this.pending; this.pending=null; if(!p) return;
-    if(r.error) return p.rej(gcErr(r.error==="access_denied"?"denied":"oauth",r.error_description||r.error));
-    if(!google.accounts.oauth2.hasGrantedAllScopes(r,GC_SCOPE)) return p.rej(gcErr("scope"));
+    const p=this.pending; this.pending=null; clearTimeout(this.softTimer);
+    const fail=e=>{ gcLog("Réponse de Google : "+(e.detail||e.code)); if(p) p.rej(e); else gcLate(e); };
+    if(!r||r.error) return fail(gcErr(r&&r.error==="access_denied"?"denied":"oauth",r?(r.error_description||r.error):"réponse vide"));
+    let ok=false; try{ ok=google.accounts.oauth2.hasGrantedAllScopes(r,GC_SCOPE); }catch(x){ ok=String(r.scope||"").split(" ").includes(GC_SCOPE); }
+    if(!ok) return fail(gcErr("scope","autorisations reçues : "+(r.scope||"aucune")));
     this.token=r.access_token; this.exp=Date.now()+(+r.expires_in||3600)*1000;
-    try{ sessionStorage.setItem("gcalToken",JSON.stringify({token:this.token,exp:this.exp})); }catch(e){}
-    local.set("gcalEver",true); p.res();
+    try{ localStorage.setItem("gcalToken",JSON.stringify({token:this.token,exp:this.exp})); }catch(e){}
+    local.set("gcalEver",true); gcLog("Autorisation reçue, valable jusqu'à "+hm(this.exp));
+    if(p) p.res(); else gcLate(null);
   },
-  _fail(e){ const p=this.pending; this.pending=null; if(!p) return; const t=e&&e.type; p.rej(gcErr(t==="popup_failed_to_open"?"popup":t==="popup_closed"?"closed":"oauth",e&&e.message)); },
+  _fail(e){
+    const t=e&&e.type; gcLog("Signal de la fenêtre Google : "+(t||"inconnu"));
+    if(t==="popup_closed"&&this.pending){
+      /* Google signale parfois une fermeture alors que l'autorisation arrive juste après : on attend encore. */
+      if(this.onSoft) this.onSoft();
+      clearTimeout(this.softTimer);
+      this.softTimer=setTimeout(()=>{ const p=this.pending; this.pending=null; if(p) p.rej(gcErr("closed")); },60000);
+      return;
+    }
+    const p=this.pending; this.pending=null; clearTimeout(this.softTimer);
+    if(p) p.rej(gcErr(t==="popup_failed_to_open"?"popup":"oauth",e&&e.message));
+  },
   disconnect(){
     if(this.token&&window.google&&google.accounts&&google.accounts.oauth2){ try{ google.accounts.oauth2.revoke(this.token,()=>{}); }catch(e){} }
-    this.token=null; this.exp=0; try{ sessionStorage.removeItem("gcalToken"); }catch(e){}
+    this.token=null; this.exp=0; try{ localStorage.removeItem("gcalToken"); }catch(e){}
     this.cache={}; local.set("gcalEver",false); this.persist();
   },
   fetchDay(k){
@@ -2087,7 +2106,7 @@ const GCal={
     const url=`https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=100&timeMin=${encodeURIComponent(d.toISOString())}&timeMax=${encodeURIComponent(e.toISOString())}`;
     const p=(async()=>{
       let r; try{ r=await fetch(url,{headers:{Authorization:"Bearer "+this.token}}); }catch(x){ throw gcErr("network"); }
-      if(r.status===401){ this.token=null; this.exp=0; try{ sessionStorage.removeItem("gcalToken"); }catch(x){} throw gcErr("expired"); }
+      if(r.status===401){ this.token=null; this.exp=0; try{ localStorage.removeItem("gcalToken"); }catch(x){} throw gcErr("expired"); }
       if(!r.ok){ let j={}; try{ j=await r.json(); }catch(x){} const m=(j.error&&j.error.message)||("HTTP "+r.status); throw gcErr(/has not been used|is disabled|not been enabled|accessNotConfigured/i.test(m)?"api_off":"http",m); }
       const j=await r.json();
       this.cache[k]={at:Date.now(),events:(j.items||[]).filter(ev=>ev&&ev.status!=="cancelled").map(gcNormalize).filter(Boolean).slice(0,100)};
@@ -2116,15 +2135,26 @@ function gcAutoFetch(){
   gcTry[k]=Date.now();
   GCal.fetchDay(k).then(()=>{ gcErrs[k]=null; if(mapDay===k) renderMap(); }).catch(e=>{ gcErrs[k]=gcMsg(e); if(mapDay===k) renderMap(); });
 }
-async function gcConnectClick(msgEl){
-  const show=(t,err)=>{ if(msgEl){ msgEl.className="msg"+(err?" err":" ok"); msgEl.textContent=t; } else toast(t); };
-  try{
-    if(!GCal.connected()){ if(msgEl) { msgEl.className="msg"; msgEl.textContent="Connexion à Google…"; } await GCal.connect(); }
-    const k=mapDay||todayKey(); gcTry[k]=Date.now();
-    await GCal.fetchDay(k); gcErrs[k]=null;
-    const n=GCal.events(k).length; show(`Google Agenda connecté : ${n} événement${n>1?"s":""} trouvé${n>1?"s":""} pour ce jour.`); SFX.save();
-  }catch(e){ show(e&&e.code?gcMsg(e):gcMsg({code:"oauth",detail:String(e&&e.message||e)}),true); }
+const gcJournal=[];
+function gcLog(t){ gcJournal.push(`${new Date().toLocaleTimeString("fr-FR")} · ${t}`); if(gcJournal.length>12) gcJournal.shift(); const el=document.getElementById("gc-log"); if(el) el.textContent=gcJournal.join("\n"); }
+let gcStatus=null;
+function gcShow(t,err,msgEl){ gcStatus={t,err}; const el=msgEl||document.getElementById("gc-msg"); if(el){ el.className="msg"+(err?" err":" ok"); el.textContent=t; } renderGcalBox(); }
+async function gcAfterConnect(msgEl){
+  const k=mapDay||todayKey(); gcTry[k]=Date.now();
+  try{ await GCal.fetchDay(k); gcErrs[k]=null; const n=GCal.events(k).length; gcLog(`Agenda lu : ${n} événement(s)`); gcShow(`Google Agenda connecté : ${n} événement${n>1?"s":""} trouvé${n>1?"s":""} pour ce jour.`,false,msgEl); SFX.save(); }
+  catch(e){ gcLog("Lecture de l'agenda : "+(e.detail||e.code)); gcShow(gcMsg(e),true,msgEl); }
   renderMap(); if(!$("#m-set").hidden) renderSettings();
+}
+function gcLate(err){ if(err){ gcShow(gcMsg(err),true); toast(gcMsg(err)); return; } toast("Google Agenda connecté."); gcAfterConnect(null); }
+async function gcConnectClick(msgEl){
+  try{
+    if(!GCal.connected()){
+      gcShow("Connexion à Google… termine la connexion dans la fenêtre Google.",false,msgEl);
+      GCal.onSoft=()=>gcShow("La fenêtre Google s'est fermée. Si tu as tout accepté, l'agenda va s'afficher dans quelques secondes…",false,msgEl);
+      await GCal.connect();
+    }
+  }catch(e){ gcShow(e&&e.code?gcMsg(e):gcMsg({code:"oauth",detail:String(e&&e.message||e)}),true,msgEl); renderMap(); if(!$("#m-set").hidden) renderSettings(); return; }
+  await gcAfterConnect(msgEl);
 }
 function renderGcalBox(){
   const box=$("#gcal-box"); if(!box) return; box.innerHTML="";
@@ -2144,6 +2174,7 @@ function renderGcalBox(){
   const out=gcOutside(mapDay);
   if(out.length){ const d=document.createElement("div"); d.className="gc-out"; d.innerHTML="<b>Aussi ce jour-là :</b> "; d.append(out.map(ev=>ev.allDay?`${ev.title} (toute la journée)`:`${ev.title} (${hm(ev.startMs)})`).join(" · ")); box.appendChild(d); }
   if(gcErrs[mapDay]){ const er=document.createElement("div"); er.className="gc-err"; er.textContent=gcErrs[mapDay]; box.appendChild(er); }
+  else if(gcStatus&&!GCal.connected()){ const er=document.createElement("div"); er.className=gcStatus.err?"gc-err":"msg"; er.textContent=gcStatus.t; box.appendChild(er); }
 }
 
 /* ================= Écran Carte : planificateur de journée ================= */
