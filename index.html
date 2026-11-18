@@ -394,6 +394,22 @@ body.map-on .screen-frame .e{box-shadow:0 0 8px rgba(127,227,255,.6)}
 .field select option{background:#0b0f16;color:var(--ink);font-style:normal}
 .field input[type=time]{color-scheme:dark}
 .catpick.kinds button svg{width:18px;height:16px;color:var(--pc)}
+a.hint{text-decoration:none}
+.pin.locked{cursor:pointer}
+.pin.locked .mk::before{transform:none;border-radius:50%;inset:5px}
+.gcic{width:18px;height:18px;flex:none;color:var(--pc);display:grid;place-items:center}
+.gcic svg{width:15px;height:15px}
+#gcal-box{display:flex;flex-direction:column;gap:4px;font-size:12px}
+#gcal-box:empty{display:none}
+.gc-line{display:flex;align-items:center;gap:8px;flex-wrap:wrap;color:var(--muted)}
+.gc-line svg{width:14px;height:14px;color:#ff7ac8;flex:none}
+.gc-line button,.gc-link{background:none;border:0;border-bottom:1px dotted var(--cyan);color:var(--cyan);font:inherit;font-style:italic;font-weight:700;padding:0;cursor:pointer;font-size:12px}
+.gc-link{align-self:flex-start}
+.gc-out{color:var(--ink);font-size:12px;line-height:1.45}
+.gc-out b{color:#ff9fd5;font-weight:700}
+.gc-err{color:#ff9b8f;font-size:12px;line-height:1.4}
+.gc-help{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--muted);line-height:1.45}
+.gc-help b{color:var(--ink)}
 @media (max-width:900px){
   .map-main{grid-template-columns:minmax(0,1fr)}
   .mapbox{aspect-ratio:4/3;min-height:300px}
@@ -572,6 +588,7 @@ body.map-on .screen-frame .e{box-shadow:0 0 8px rgba(127,227,255,.6)}
       <aside class="itin" aria-label="Itinéraire du jour">
         <h2>Itinéraire</h2>
         <div class="itin-sum" id="itin-sum"></div>
+        <div id="gcal-box"></div>
         <div id="proposal-box"></div>
         <ul class="itin-list" id="itin-list"></ul>
         <div class="itin-detail" id="itin-detail" hidden></div>
@@ -681,6 +698,14 @@ body.map-on .screen-frame .e{box-shadow:0 0 8px rgba(127,227,255,.6)}
         <div class="field"><span class="lab">Modèles disponibles</span><button type="button" class="btn ghost" id="ai-list">Charger la liste de ma clé</button></div>
       </div>
       <div class="testrow"><button type="button" class="btn" id="ai-save">Enregistrer</button><button type="button" class="btn ghost" id="ai-test">Tester la clé</button><span class="msg" id="ai-msg"></span></div>
+    </section>
+    <section>
+      <h3>Google Agenda · lecture seule</h3>
+      <p class="msg">Les rendez-vous de ton agenda principal s'affichent sur la carte. Le site peut seulement les lire, jamais les modifier. Tout se passe entre ton navigateur et Google.</p>
+      <label class="field"><span class="lab">ID client OAuth Google (se termine par .apps.googleusercontent.com)</span><input id="gc-client" autocomplete="off" spellcheck="false" placeholder="123456789012-abc….apps.googleusercontent.com"></label>
+      <p class="msg">Origine JavaScript à déclarer dans Google Cloud : <b id="gc-origin"></b></p>
+      <div class="testrow"><button type="button" class="btn" id="gc-connect">Se connecter à Google</button><button type="button" class="btn ghost" id="gc-disconnect" hidden>Se déconnecter</button></div>
+      <span class="msg" id="gc-msg"></span>
     </section>
     <section>
       <h3>Fond d'écran</h3>
@@ -825,6 +850,7 @@ const Store={
       }catch(e){ this.mode="memory"; }
       try{ if(navigator.storage&&navigator.storage.persist) persisted=(await navigator.storage.persisted())||(await navigator.storage.persist()); }catch(e){}
       await Disk.init();
+      await GCal.init();
     }
     if(this.mode!=="idb"){ quests=EXAMPLES.map(q=>Object.assign({},q)); setStatus("Ce navigateur bloque la sauvegarde : tes changements seront perdus en fermant la page."); }
     else setStatus("");
@@ -1865,6 +1891,11 @@ function renderSettings(){
   $("#snd").checked=soundOn();
   if(document.activeElement!==$("#ai-key")) $("#ai-key").value=aiCfg.key||"";
   if(document.activeElement!==$("#ai-model")) $("#ai-model").value=aiCfg.model||"gemini-flash-latest";
+  if(document.activeElement!==$("#gc-client")) $("#gc-client").value=GCal.clientId||"";
+  $("#gc-origin").textContent=location.origin;
+  $("#gc-disconnect").hidden=!GCal.connected()&&!local.get("gcalEver",false);
+  $("#gc-connect").textContent=GCal.connected()?"Synchroniser maintenant":"Se connecter à Google";
+  if(!$("#gc-msg").textContent) $("#gc-msg").textContent=GCal.connected()?`Connecté jusqu'à ${hm(GCal.exp)} (ensuite, un clic suffit pour te reconnecter).`:(GCal.configured()?"Pas connecté pour l'instant.":"");
   const sm=$("#save-mode");
   sm.textContent = Store.mode==="idb"
     ? `Chaque modification est enregistrée dans ce navigateur, sur cet ordinateur, dès que tu la fais. Protection contre le nettoyage automatique du navigateur : ${persisted?"activée":"pas encore accordée (installer le site comme application aide à l'obtenir)"}.`
@@ -1890,7 +1921,15 @@ function renderSettings(){
   $("#imp-dir").hidden=!Disk.ok;
   const nEx=quests.filter(q=>q.example).length; $("#rm-examples").disabled=!nEx; $("#rm-msg").textContent=nEx?`${nEx} quête${nEx>1?"s":""} d'exemple dans le journal.`:"Aucune quête d'exemple.";
 }
-$("#open-settings").onclick=()=>{ renderSettings(); renderBackups(); showModal("#m-set"); };
+$("#open-settings").onclick=()=>{ $("#gc-msg").textContent=""; renderSettings(); renderBackups(); showModal("#m-set"); if(GCal.configured()) GCal.loadGis().catch(()=>{}); };
+$("#gc-client").addEventListener("input",()=>{ const v=$("#gc-client").value.trim(); if(/\.apps\.googleusercontent\.com$/.test(v)) GCal.loadGis().catch(()=>{}); });
+$("#gc-connect").onclick=async ()=>{
+  const v=$("#gc-client").value.trim(), m=$("#gc-msg");
+  if(v!==GCal.clientId){ GCal.clientId=v; GCal.tokenClient=null; GCal.persist(); }
+  if(!GCal.configured()){ m.className="msg err"; m.textContent="Cet ID ne ressemble pas à un ID client Google : il doit se terminer par « .apps.googleusercontent.com »."; return; }
+  await gcConnectClick(m);
+};
+$("#gc-disconnect").onclick=()=>{ GCal.disconnect(); gcErrs={}; gcTry={}; const m=$("#gc-msg"); m.className="msg"; m.textContent="Déconnecté. Tes rendez-vous Google ne sont plus affichés sur la carte."; renderSettings(); renderMap(); };
 $("#set-close").onclick=hideModal;
 /* IA */
 $("#ai-show").onclick=()=>{ const i=$("#ai-key"), show=i.type==="password"; i.type=show?"text":"password"; $("#ai-show").textContent=show?"Masquer":"Afficher"; };
@@ -1969,6 +2008,144 @@ $("#rm-examples").onclick=()=>{
 };
 $("#new-quest").onclick=()=>openForm(null);
 
+/* ================= Google Agenda (lecture seule) ================= */
+const GC_SCOPE="https://www.googleapis.com/auth/calendar.events.readonly";
+const GCAL={label:"Google Agenda",color:"#ff7ac8",icon:`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="5" width="18" height="16" rx="2"/><path d="M3 10h18M8 3v4M16 3v4"/><rect x="7" y="13" width="4" height="4" fill="currentColor" stroke="none"/></svg>`};
+const GC_RO="Ce rendez-vous vient de ton Google Agenda : le site peut seulement le lire. Modifie-le dans Google Agenda.";
+let gcTry={}, gcErrs={};
+function gcErr(code,msg){ const e=new Error(msg||code); e.code=code; e.detail=msg||""; return e; }
+function gcMsg(e){
+  switch(e&&e.code){
+    case "no_client": return "Colle d'abord ton ID client OAuth dans Réglages → Google Agenda.";
+    case "denied": return "Tu as refusé l'accès à ton agenda.";
+    case "scope": return "L'accès à l'agenda n'a pas été accordé. Reconnecte-toi et coche la case Google Agenda dans la fenêtre de Google.";
+    case "popup": return "Chrome a bloqué la fenêtre de connexion Google. Clique à nouveau sur le bouton (ou autorise les fenêtres pop-up pour ce site).";
+    case "closed": return "Fenêtre de connexion fermée avant la fin. Si Google affichait une erreur comme « invalid_client » ou « origin_mismatch », vérifie l'ID client et l'origine déclarée dans Google Cloud.";
+    case "expired": return "La connexion à Google a expiré : reconnecte-toi.";
+    case "api_off": return "L'API Google Calendar n'est pas activée dans ton projet Google Cloud : Bibliothèque → « Google Calendar API » → Activer.";
+    case "gis": return "Impossible de charger la connexion Google. Vérifie ta connexion Internet.";
+    case "network": return "Impossible de joindre Google Agenda. Vérifie ta connexion Internet.";
+    default: return "Google a renvoyé une erreur"+(e&&e.detail?" : "+String(e.detail).slice(0,200):".");
+  }
+}
+function gcNormalize(ev){
+  if(!ev||typeof ev!=="object") return null;
+  const link=typeof ev.htmlLink==="string"&&/^https:\/\/(www\.google\.com\/calendar|calendar\.google\.com)\//.test(ev.htmlLink)?ev.htmlLink:"";
+  const o={id:String(ev.id||Math.random().toString(36).slice(2)).replace(/[^A-Za-z0-9_-]/g,"").slice(0,120),title:String(ev.summary||"(Sans titre)").slice(0,120),place:ev.location?String(ev.location).slice(0,120):"",link};
+  if(ev.start&&ev.start.date){ o.allDay=true; return o; }
+  if(!ev.start||!ev.start.dateTime) return null;
+  const s=new Date(ev.start.dateTime).getTime(), en=ev.end&&ev.end.dateTime?new Date(ev.end.dateTime).getTime():s+3600000;
+  if(!isFinite(s)||!isFinite(en)) return null;
+  o.startMs=s; o.endMs=Math.max(en,s+60000); return o;
+}
+const GCal={
+  clientId:"", token:null, exp:0, cache:{}, gisP:null, tokenClient:null, tcId:null, pending:null, fetching:{},
+  async init(){
+    if(Store.mode==="idb"){ const c=await IDB.get("kv","gcal").catch(()=>null); if(c){ this.clientId=typeof c.clientId==="string"?c.clientId:""; this.cache=c.cache&&typeof c.cache==="object"?c.cache:{}; } }
+    try{ const t=JSON.parse(sessionStorage.getItem("gcalToken")||"null"); if(t&&t.exp>Date.now()+60000){ this.token=t.token; this.exp=t.exp; } }catch(e){}
+    if(this.configured()&&local.get("view","log")==="map") this.loadGis().catch(()=>{});
+  },
+  async persist(){
+    const lim=addDays(todayKey(),-14); Object.keys(this.cache).forEach(k=>{ if(k<lim) delete this.cache[k]; });
+    if(Store.mode==="idb") await IDB.put("kv",{clientId:this.clientId,cache:this.cache},"gcal").catch(()=>{});
+  },
+  configured(){ return /^[A-Za-z0-9._-]+\.apps\.googleusercontent\.com$/.test(this.clientId||""); },
+  connected(){ return !!this.token&&this.exp>Date.now()+30000; },
+  loadGis(){
+    if(window.google&&google.accounts&&google.accounts.oauth2) return Promise.resolve();
+    if(this.gisP) return this.gisP;
+    this.gisP=new Promise((res,rej)=>{ const s=document.createElement("script"); s.src="https://accounts.google.com/gsi/client"; s.async=true; s.onload=()=>res(); s.onerror=()=>{ this.gisP=null; s.remove(); rej(gcErr("gis")); }; document.head.appendChild(s); });
+    return this.gisP;
+  },
+  async connect(){
+    if(!this.configured()) throw gcErr("no_client");
+    await this.loadGis();
+    if(!this.tokenClient||this.tcId!==this.clientId){
+      this.tokenClient=google.accounts.oauth2.initTokenClient({client_id:this.clientId,scope:GC_SCOPE,callback:r=>this._done(r),error_callback:e=>this._fail(e)});
+      this.tcId=this.clientId;
+    }
+    return new Promise((res,rej)=>{ this.pending={res,rej}; this.tokenClient.requestAccessToken({prompt:local.get("gcalEver",false)?"":"consent"}); });
+  },
+  _done(r){
+    const p=this.pending; this.pending=null; if(!p) return;
+    if(r.error) return p.rej(gcErr(r.error==="access_denied"?"denied":"oauth",r.error_description||r.error));
+    if(!google.accounts.oauth2.hasGrantedAllScopes(r,GC_SCOPE)) return p.rej(gcErr("scope"));
+    this.token=r.access_token; this.exp=Date.now()+(+r.expires_in||3600)*1000;
+    try{ sessionStorage.setItem("gcalToken",JSON.stringify({token:this.token,exp:this.exp})); }catch(e){}
+    local.set("gcalEver",true); p.res();
+  },
+  _fail(e){ const p=this.pending; this.pending=null; if(!p) return; const t=e&&e.type; p.rej(gcErr(t==="popup_failed_to_open"?"popup":t==="popup_closed"?"closed":"oauth",e&&e.message)); },
+  disconnect(){
+    if(this.token&&window.google&&google.accounts&&google.accounts.oauth2){ try{ google.accounts.oauth2.revoke(this.token,()=>{}); }catch(e){} }
+    this.token=null; this.exp=0; try{ sessionStorage.removeItem("gcalToken"); }catch(e){}
+    this.cache={}; local.set("gcalEver",false); this.persist();
+  },
+  fetchDay(k){
+    if(!this.connected()) return Promise.reject(gcErr("expired"));
+    if(this.fetching[k]) return this.fetching[k];
+    const d=parseKey(k), e=parseKey(addDays(k,1));
+    const url=`https://www.googleapis.com/calendar/v3/calendars/primary/events?singleEvents=true&orderBy=startTime&maxResults=100&timeMin=${encodeURIComponent(d.toISOString())}&timeMax=${encodeURIComponent(e.toISOString())}`;
+    const p=(async()=>{
+      let r; try{ r=await fetch(url,{headers:{Authorization:"Bearer "+this.token}}); }catch(x){ throw gcErr("network"); }
+      if(r.status===401){ this.token=null; this.exp=0; try{ sessionStorage.removeItem("gcalToken"); }catch(x){} throw gcErr("expired"); }
+      if(!r.ok){ let j={}; try{ j=await r.json(); }catch(x){} const m=(j.error&&j.error.message)||("HTTP "+r.status); throw gcErr(/has not been used|is disabled|not been enabled|accessNotConfigured/i.test(m)?"api_off":"http",m); }
+      const j=await r.json();
+      this.cache[k]={at:Date.now(),events:(j.items||[]).filter(ev=>ev&&ev.status!=="cancelled").map(gcNormalize).filter(Boolean).slice(0,100)};
+      await this.persist(); return true;
+    })();
+    this.fetching[k]=p; p.then(()=>{ delete this.fetching[k]; },()=>{ delete this.fetching[k]; });
+    return p;
+  },
+  events(k){ return (this.cache[k]&&this.cache[k].events)||[]; },
+  syncedAt(k){ return (this.cache[k]&&this.cache[k].at)||0; }
+};
+function gcItems(k){
+  const mid=parseKey(k).getTime();
+  return GCal.events(k).filter(ev=>!ev.allDay).map(ev=>{
+    const s=(ev.startMs-mid)/60000, e=(ev.endMs-mid)/60000; if(e<=DAY0||s>=DAY1) return null;
+    const st=Math.max(DAY0,Math.round(s)), en=Math.min(DAY1,Math.round(e));
+    return {id:"g_"+ev.id,kind:"gcal",start:st,dur:Math.max(15,en-st),title:ev.title,place:ev.place,link:ev.link,realStart:ev.startMs,realEnd:ev.endMs};
+  }).filter(Boolean);
+}
+function gcOutside(k){ const mid=parseKey(k).getTime(); return GCal.events(k).filter(ev=>ev.allDay||(ev.endMs-mid)/60000<=DAY0||(ev.startMs-mid)/60000>=DAY1); }
+function allItems(k){ return dayItems(k).concat(gcItems(k)).sort((a,b)=>a.start-b.start); }
+function gcAutoFetch(){
+  if(!GCal.connected()||!mapDay||GCal.fetching[mapDay]) return;
+  const k=mapDay, age=Date.now()-GCal.syncedAt(k), last=gcTry[k]||0;
+  if(age<5*60000||Date.now()-last<60000) return;
+  gcTry[k]=Date.now();
+  GCal.fetchDay(k).then(()=>{ gcErrs[k]=null; if(mapDay===k) renderMap(); }).catch(e=>{ gcErrs[k]=gcMsg(e); if(mapDay===k) renderMap(); });
+}
+async function gcConnectClick(msgEl){
+  const show=(t,err)=>{ if(msgEl){ msgEl.className="msg"+(err?" err":" ok"); msgEl.textContent=t; } else toast(t); };
+  try{
+    if(!GCal.connected()){ if(msgEl) { msgEl.className="msg"; msgEl.textContent="Connexion à Google…"; } await GCal.connect(); }
+    const k=mapDay||todayKey(); gcTry[k]=Date.now();
+    await GCal.fetchDay(k); gcErrs[k]=null;
+    const n=GCal.events(k).length; show(`Google Agenda connecté : ${n} événement${n>1?"s":""} trouvé${n>1?"s":""} pour ce jour.`); SFX.save();
+  }catch(e){ show(e&&e.code?gcMsg(e):gcMsg({code:"oauth",detail:String(e&&e.message||e)}),true); }
+  renderMap(); if(!$("#m-set").hidden) renderSettings();
+}
+function renderGcalBox(){
+  const box=$("#gcal-box"); if(!box) return; box.innerHTML="";
+  if(!GCal.configured()){
+    const b=document.createElement("button"); b.className="gc-link"; b.textContent="Afficher mon Google Agenda sur la carte";
+    b.onclick=()=>{ $("#open-settings").click(); setTimeout(()=>{ const i=$("#gc-client"); if(i){ i.scrollIntoView({block:"center"}); i.focus(); } },120); };
+    box.appendChild(b); return;
+  }
+  const line=document.createElement("div"); line.className="gc-line"; line.innerHTML=GCAL.icon+"<span></span>";
+  const at=GCal.syncedAt(mapDay), t=line.querySelector("span");
+  if(GCal.connected()) t.textContent=GCal.fetching[mapDay]?"Google Agenda · synchronisation…":`Google Agenda · synchronisé à ${at?hm(at):"—"}`;
+  else t.textContent=at?`Google Agenda · dernière synchro le ${new Date(at).toLocaleDateString("fr-FR",{day:"numeric",month:"short"})} à ${hm(at)}`:"Google Agenda · pas connecté";
+  const b=document.createElement("button"); b.type="button";
+  b.textContent=GCal.connected()?"↻ Actualiser":(local.get("gcalEver",false)?"Reconnecter":"Se connecter");
+  b.onclick=()=>{ if(GCal.connected()){ gcTry[mapDay]=0; GCal.cache[mapDay]&&(GCal.cache[mapDay].at=0); gcAutoFetch(); renderGcalBox(); } else gcConnectClick(null); };
+  line.appendChild(b); box.appendChild(line);
+  const out=gcOutside(mapDay);
+  if(out.length){ const d=document.createElement("div"); d.className="gc-out"; d.innerHTML="<b>Aussi ce jour-là :</b> "; d.append(out.map(ev=>ev.allDay?`${ev.title} (toute la journée)`:`${ev.title} (${hm(ev.startMs)})`).join(" · ")); box.appendChild(d); }
+  if(gcErrs[mapDay]){ const er=document.createElement("div"); er.className="gc-err"; er.textContent=gcErrs[mapDay]; box.appendChild(er); }
+}
+
 /* ================= Écran Carte : planificateur de journée ================= */
 let view="log", plans={}, mapDay=null, mapSel=null, proposal=null, planBusy=false, dragQuest=null;
 const DAY0=360, DAY1=1320;
@@ -2012,19 +2189,20 @@ function cleanItem(it){
 function dayItems(k){ return (plans[k]||[]).slice().sort((a,b)=>a.start-b.start); }
 function itemQuest(it){ return it.questId?quests.find(q=>q.id===it.questId)||null:null; }
 function itemStep(it){ const q=itemQuest(it); return q&&it.stepId&&q.tasks?q.tasks.find(t=>t.id===it.stepId)||null:null; }
-function itemTitle(it){ const st=itemStep(it); if(st) return st.text; const q=itemQuest(it); if(q) return q.title; return it.title||KINDS[it.kind].label; }
+function itemTitle(it){ if(it.kind==="gcal") return it.title||"(Sans titre)"; const st=itemStep(it); if(st) return st.text; const q=itemQuest(it); if(q) return q.title; return it.title||KINDS[it.kind].label; }
 function itemSub(it){
+  if(it.kind==="gcal") return GCAL.label+(it.place?` · ${it.place}`:"");
   if(it.kind==="quest"){ const q=itemQuest(it); if(!q) return "Quête effacée du journal";
     const st=itemStep(it); return (st?`Étape de « ${q.title} »`:catOf(q.cat).one)+((it.place||q.place)?` · ${it.place||q.place}`:""); }
   return KINDS[it.kind].label+(it.place?` · ${it.place}`:"");
 }
-function itemColor(it){ if(it.kind==="quest"){ const q=itemQuest(it); return q&&q.cat==="side"?"#5ec6ee":"#e8c766"; } return KINDS[it.kind].color; }
-function itemIcon(it){ if(it.kind==="quest"){ const q=itemQuest(it); return ICON[q&&q.cat==="side"?"side":"main"]; } return KINDS[it.kind].icon; }
-function itemDone(it){ const st=itemStep(it); if(st) return !!st.done; const q=itemQuest(it); if(it.kind==="quest"&&q&&!it.stepId) return !!q.done; return !!it.done; }
+function itemColor(it){ if(it.kind==="gcal") return GCAL.color; if(it.kind==="quest"){ const q=itemQuest(it); return q&&q.cat==="side"?"#5ec6ee":"#e8c766"; } return KINDS[it.kind].color; }
+function itemIcon(it){ if(it.kind==="gcal") return GCAL.icon; if(it.kind==="quest"){ const q=itemQuest(it); return ICON[q&&q.cat==="side"?"side":"main"]; } return KINDS[it.kind].icon; }
+function itemDone(it){ if(it.kind==="gcal") return false; const st=itemStep(it); if(st) return !!st.done; const q=itemQuest(it); if(it.kind==="quest"&&q&&!it.stepId) return !!q.done; return !!it.done; }
 function saveDay(k,items){ if(items.length) plans[k]=items; else delete plans[k]; Store.putPlans(); renderMap(); }
 function commitItem(){ Store.putPlans(); renderMap(); }
 function nextFree(dur,k=mapDay){
-  const items=dayItems(k); let t=DAY0;
+  const items=allItems(k); let t=DAY0;
   if(k===todayKey()) t=Math.max(DAY0,Math.ceil((nowMinutes()+1)/15)*15);
   for(let guard=0;guard<80&&t+dur<=DAY1;guard++){
     const clash=items.find(it=>t<it.start+it.dur&&it.start<t+dur);
@@ -2088,8 +2266,13 @@ function drawTerrain(k){
   g.fillStyle="rgba(40,120,200,.07)"; g.fillRect(0,0,W,H);
   const vg=g.createRadialGradient(W/2,H/2,Math.min(W,H)*.3,W/2,H/2,Math.max(W,H)*.75); vg.addColorStop(0,"rgba(8,34,64,0)"); vg.addColorStop(1,"rgba(4,20,44,.6)"); g.fillStyle=vg; g.fillRect(0,0,W,H);
   const fs=Math.round(Math.max(18,Math.min(W,H)*.06)); g.font=`italic 800 ${fs}px "Noto Sans",sans-serif`; g.textAlign="center";
+  const placedLb=[];
   [["Matin",480],["Midi",750],["Après-midi",930],["Soir",1170]].forEach(([t,m],j)=>{
-    const [px,py]=posAt(MapS.route,m); let ty=py+(j%2?-1:1)*Math.min(78,H*.15); ty=Math.max(fs+8,Math.min(H-12,ty));
+    const [px,py]=posAt(MapS.route,m), off=Math.min(78,H*.15), wl=g.measureText(t).width;
+    const fits=ty=>!placedLb.some(o=>Math.abs(o.x-px)<(o.w+wl)/2+16&&Math.abs(o.y-ty)<fs*1.3);
+    let ty=py+(j%2?-1:1)*off; ty=Math.max(fs+8,Math.min(H-12,ty));
+    if(!fits(ty)){ let alt=py+(j%2?1:-1)*off; alt=Math.max(fs+8,Math.min(H-12,alt)); if(fits(alt)) ty=alt; }
+    placedLb.push({x:px,y:ty,w:wl});
     g.lineWidth=4; g.strokeStyle="rgba(0,0,0,.22)"; g.strokeText(t,px,ty); g.fillStyle="rgba(255,255,255,.3)"; g.fillText(t,px,ty);
   });
 }
@@ -2103,7 +2286,7 @@ function drawRoute(){
   g.strokeStyle="rgba(0,0,0,.5)"; g.lineWidth=9; strokeSpan(g,route,DAY0,DAY1);
   g.strokeStyle="rgba(240,236,214,.6)"; g.lineWidth=2.5; g.setLineDash([6,7]); strokeSpan(g,route,DAY0,DAY1); g.setLineDash([]);
   if(past>DAY0){ g.save(); g.shadowColor="#7fe3ff"; g.shadowBlur=10; g.strokeStyle="#7fe3ff"; g.lineWidth=3.5; strokeSpan(g,route,DAY0,past); g.restore(); }
-  const items=dayItems(mapDay).concat(proposal?proposal.filter(p=>p.accept).map(p=>Object.assign({ghost:true},p)):[]);
+  const items=allItems(mapDay).concat(proposal?proposal.filter(p=>p.accept).map(p=>Object.assign({ghost:true},p)):[]);
   items.forEach(it=>{ const c=itemColor(it); g.save(); g.globalAlpha=it.ghost?.55:itemDone(it)?.45:1; g.shadowColor=c; g.shadowBlur=12; g.strokeStyle=c; g.lineWidth=7; if(it.ghost) g.setLineDash([8,6]); strokeSpan(g,route,it.start,it.start+it.dur); g.restore(); });
   g.font='italic 700 10px "Noto Sans",sans-serif'; g.textAlign="center"; g.textBaseline="middle";
   for(let h=6;h<=22;h++){
@@ -2118,7 +2301,7 @@ function drawRoute(){
 }
 function renderPins(){
   const box=$("#map-pins"), route=MapS.route; if(!route) return; box.innerHTML="";
-  const items=dayItems(mapDay), ghosts=proposal?proposal.filter(p=>p.accept):[];
+  const items=allItems(mapDay), ghosts=proposal?proposal.filter(p=>p.accept):[];
   items.concat(ghosts.map(p=>Object.assign({ghost:true},p))).sort((a,b)=>a.start-b.start).forEach((it,idx)=>{
     const [x,y]=posAt(route,it.start), b=document.createElement("button");
     let above=idx%2===1; if(y<70) above=false; if(y>MapS.H-80) above=true;
@@ -2127,7 +2310,8 @@ function renderPins(){
     b.innerHTML=`<span class="mk">${itemIcon(it)}</span><span class="lb"></span><span class="tm">${hhmm(it.start)}</span>`;
     b.querySelector(".lb").textContent=itemTitle(it);
     b.setAttribute("aria-label",`${hhmm(it.start)} à ${hhmm(it.start+it.dur)} : ${itemTitle(it)}${it.ghost?" (proposition)":""}`);
-    if(!it.ghost){ pinDrag(b,(plans[mapDay]||[]).find(x=>x.id===it.id)); b.addEventListener("dblclick",()=>{ const real=(plans[mapDay]||[]).find(x=>x.id===it.id); if(real) openEv(real); }); }
+    if(it.kind==="gcal"){ b.classList.add("locked"); b.addEventListener("click",()=>selectItem(it.id,true)); }
+    else if(!it.ghost){ pinDrag(b,(plans[mapDay]||[]).find(x=>x.id===it.id)); b.addEventListener("dblclick",()=>{ const real=(plans[mapDay]||[]).find(x=>x.id===it.id); if(real) openEv(real); }); }
     else b.tabIndex=-1;
     box.appendChild(b);
   });
@@ -2165,20 +2349,21 @@ function pinDrag(b,it){
 
 /* --- Panneau Itinéraire --- */
 function renderItin(){
-  const items=dayItems(mapDay), total=items.reduce((s,it)=>s+it.dur,0), done=items.filter(itemDone).length, sum=$("#itin-sum");
+  const own=dayItems(mapDay), gce=gcItems(mapDay), items=allItems(mapDay), total=own.reduce((s,it)=>s+it.dur,0), done=own.filter(itemDone).length, sum=$("#itin-sum");
+  renderGcalBox();
   if(!items.length) sum.textContent="Ton itinéraire est vide pour ce jour.";
   else{
-    let txt=`${items.length} créneau${items.length>1?"x":""} · ${durTxt(total)} planifiés · ${done} fait${done>1?"s":""}`;
+    let txt=own.length?`${own.length} créneau${own.length>1?"x":""} · ${durTxt(total)} planifiés · ${done} fait${done>1?"s":""}${gce.length?` · ${gce.length} rendez-vous Google`:""}`:`${gce.length} rendez-vous Google · aucun créneau à toi pour l'instant`;
     sum.textContent=txt;
     if(mapDay===todayKey()){ const now=nowMinutes(), nx=items.find(it=>it.start+it.dur>now&&!itemDone(it)); if(nx){ const br=document.createElement("br"), b=document.createElement("b"); b.textContent=nx.start<=now?`En cours : ${itemTitle(nx)}`:`Prochaine étape à ${hhmm(nx.start)} : ${itemTitle(nx)}`; sum.append(br,b); } }
   }
   const ul=$("#itin-list"); ul.innerHTML="";
   items.forEach(it=>{
     const li=document.createElement("li"); li.className="it"+(itemDone(it)?" done":"")+(mapSel===it.id?" sel":""); li.style.setProperty("--pc",itemColor(it));
-    li.innerHTML=`<button type="button" class="ck" role="checkbox" aria-checked="${itemDone(it)}" aria-label="Marquer comme fait"></button><span class="tm">${hhmm(it.start)}–${hhmm(it.start+it.dur)}</span><span class="ti"><b></b><span></span></span>`;
+    li.innerHTML=`${it.kind==="gcal"?`<span class="gcic" title="Google Agenda">${GCAL.icon}</span>`:`<button type="button" class="ck" role="checkbox" aria-checked="${itemDone(it)}" aria-label="Marquer comme fait"></button>`}<span class="tm">${hhmm(it.start)}–${hhmm(it.start+it.dur)}</span><span class="ti"><b></b><span></span></span>`;
     li.querySelector("b").textContent=itemTitle(it); li.querySelector(".ti span").textContent=itemSub(it);
-    li.querySelector(".ck").onclick=e=>{ e.stopPropagation(); toggleItemDone(it); };
-    li.onclick=()=>selectItem(it.id,true); li.ondblclick=()=>openEv(it);
+    const ck=li.querySelector(".ck"); if(ck) ck.onclick=e=>{ e.stopPropagation(); toggleItemDone(it); };
+    li.onclick=()=>selectItem(it.id,true); if(it.kind!=="gcal") li.ondblclick=()=>openEv(it);
     ul.appendChild(li);
   });
   const det=$("#itin-detail"), it=items.find(x=>x.id===mapSel);
@@ -2186,12 +2371,18 @@ function renderItin(){
   else{
     det.hidden=false; det.innerHTML=`<span class="dt"></span><span class="dm"></span><span class="dm"></span><div class="acts"></div>`;
     det.querySelector(".dt").textContent=itemTitle(it);
-    const dms=det.querySelectorAll(".dm"); dms[0].textContent=`${hhmm(it.start)} → ${hhmm(it.start+it.dur)} · ${durTxt(it.dur)}`; dms[1].textContent=itemSub(it);
-    const acts=det.querySelector(".acts");
-    acts.appendChild(hint("A",itemDone(it)?"Pas encore fait":"C'est fait",()=>toggleItemDone(it)));
-    acts.appendChild(hint("E","Modifier",()=>openEv(it)));
-    if(it.questId&&itemQuest(it)) acts.appendChild(hint("⏎","Voir dans le journal",()=>openInJournal(it)));
-    acts.appendChild(hint("Suppr","Retirer",()=>removeItem(it),"danger"));
+    const dms=det.querySelectorAll(".dm"), acts=det.querySelector(".acts"); dms[1].textContent=itemSub(it);
+    if(it.kind==="gcal"){
+      dms[0].textContent=`${hm(it.realStart)} → ${hm(it.realEnd)} · ${durTxt(Math.max(1,Math.round((it.realEnd-it.realStart)/60000)))}`;
+      if(it.link){ const a=document.createElement("a"); a.className="hint"; a.href=it.link; a.target="_blank"; a.rel="noopener"; a.innerHTML=`<span class="k">↗</span><span>Ouvrir dans Google Agenda</span>`; acts.appendChild(a); }
+      const n=document.createElement("span"); n.className="msg"; n.textContent="Lecture seule : à modifier dans Google Agenda."; acts.appendChild(n);
+    } else {
+      dms[0].textContent=`${hhmm(it.start)} → ${hhmm(it.start+it.dur)} · ${durTxt(it.dur)}`;
+      acts.appendChild(hint("A",itemDone(it)?"Pas encore fait":"C'est fait",()=>toggleItemDone(it)));
+      acts.appendChild(hint("E","Modifier",()=>openEv(it)));
+      if(it.questId&&itemQuest(it)) acts.appendChild(hint("⏎","Voir dans le journal",()=>openInJournal(it)));
+      acts.appendChild(hint("Suppr","Retirer",()=>removeItem(it),"danger"));
+    }
   }
   const pb=$("#proposal-box"); pb.innerHTML="";
   if(proposal){
@@ -2241,11 +2432,12 @@ function renderMap(){
   if(!mapDay) mapDay=todayKey();
   renderDayNav();
   if(ensureMap()){ drawRoute(); renderPins(); }
-  renderItin(); renderMapHints();
+  renderItin(); renderMapHints(); gcAutoFetch();
 }
 function selectItem(id,sound){ mapSel=mapSel===id&&!sound?null:id; if(sound) SFX.move(); renderPins(); renderItin(); }
 function goDay(k){ if(k===mapDay) return; mapDay=k; mapSel=null; proposal=null; SFX.tab(); const mb=$("#mapbox"); mb.classList.remove("fading"); void mb.offsetWidth; mb.classList.add("fading"); renderMap(); }
 function toggleItemDone(it){
+  if(it.kind==="gcal"){ toast(GC_RO); return; }
   const q=itemQuest(it);
   if(it.kind==="quest"&&q){
     if(it.stepId&&q.tasks){ const i=q.tasks.findIndex(t=>t.id===it.stepId); if(i>=0){ toggleStep(q.id,i); renderMap(); return; } }
@@ -2254,6 +2446,7 @@ function toggleItemDone(it){
   it.done=!it.done; if(it.done) SFX.check(); else SFX.move(); commitItem();
 }
 function removeItem(it){
+  if(it.kind==="gcal"){ toast(GC_RO); return; }
   const k=mapDay; saveDay(k,(plans[k]||[]).filter(x=>x.id!==it.id)); if(mapSel===it.id) mapSel=null; renderMap(); toast(`« ${itemTitle(it)} » retiré de l'itinéraire.`);
 }
 function openInJournal(it){ const q=itemQuest(it); if(!q) return; setView("log",true); if(cat!==q.cat) setCat(q.cat,false); select(q.id,false); }
@@ -2306,6 +2499,7 @@ function fillStepSelect(keepS){
 }
 $("#ev-quest").onchange=()=>fillStepSelect("");
 function openEv(it,preset){
+  if(it&&it.kind==="gcal"){ toast(GC_RO); return; }
   evEdit=it||null; const p=it||preset||{};
   evKind=p.kind&&KINDS[p.kind]?p.kind:"meal";
   $("#ev-h").textContent=it?"Modifier le créneau":"Nouveau créneau";
@@ -2347,7 +2541,7 @@ async function planWithAI(){
   const k=mapDay, isToday=k===todayKey(), from=isToday?Math.max(DAY0,Math.ceil((nowMinutes()+10)/15)*15):DAY0;
   if(k<todayKey()){ toast("Ce jour est passé : choisis aujourd'hui ou un jour à venir."); return; }
   if(from>DAY1-30){ toast("Il ne reste plus assez de temps avant 22 h. Essaie pour demain."); return; }
-  const fixed=dayItems(k).map(it=>`- ${hhmm(it.start)}–${hhmm(it.start+it.dur)} : ${itemTitle(it)}`).join("\n")||"(aucun)";
+  const fixed=allItems(k).map(it=>`- ${hhmm(it.start)}–${hhmm(it.start+it.dur)} : ${itemTitle(it)}`).join("\n")||"(aucun)";
   const placed=new Set(dayItems(k).filter(x=>x.questId&&!x.stepId).map(x=>x.questId));
   const active=quests.filter(q=>q.cat!=="mem"&&!q.done&&!placed.has(q.id)).slice(0,25);
   const qlist=active.map(q=>{ const steps=(q.tasks||[]).filter(t=>!t.done).slice(0,8).map(t=>`    · étape ${t.id} : ${t.text}`).join("\n"); return `- quête ${q.id} (${catOf(q.cat).one}) : ${q.title}${q.place?" · lieu : "+q.place:""}${steps?"\n"+steps:""}`; }).join("\n")||"(aucune)";
@@ -2394,7 +2588,7 @@ function setView(v,sound){
   $("#go-map-ic").innerHTML=v==="map"?BOOKICON:MAPICON; $("#go-map-l").textContent=v==="map"?"Journal":"Carte";
   if(sound){ SFX.slate(); const sw=document.createElement("div"); sw.className="slate-sweep"; document.body.appendChild(sw); setTimeout(()=>sw.remove(),650); }
   local.set("view",v);
-  if(v==="map"){ if(!mapDay) mapDay=todayKey(); requestAnimationFrame(renderMap); }
+  if(v==="map"){ if(!mapDay) mapDay=todayKey(); if(GCal.configured()) GCal.loadGis().catch(()=>{}); requestAnimationFrame(renderMap); }
   else { renderAll(); }
 }
 $("#go-map").onclick=()=>setView(view==="map"?"log":"map",true);
@@ -2405,7 +2599,7 @@ $("#plan-ai").onclick=planWithAI;
 if(window.ResizeObserver) new ResizeObserver(()=>{ if(view==="map") renderMap(); }).observe($("#mapbox"));
 if(document.fonts&&document.fonts.ready) document.fonts.ready.then(()=>{ MapS.key=null; if(view==="map") renderMap(); });
 function mapKey(e){
-  const k=e.key.toLowerCase(), items=dayItems(mapDay), i=items.findIndex(x=>x.id===mapSel), it=i>=0?items[i]:null;
+  const k=e.key.toLowerCase(), items=allItems(mapDay), i=items.findIndex(x=>x.id===mapSel), it=i>=0?items[i]:null;
   if(e.key==="ArrowLeft"){ e.preventDefault(); goDay(addDays(mapDay,-1)); }
   else if(e.key==="ArrowRight"){ e.preventDefault(); goDay(addDays(mapDay,1)); }
   else if(e.key==="ArrowDown"){ e.preventDefault(); if(items.length) selectItem(items[(i+1)%items.length].id,true); }

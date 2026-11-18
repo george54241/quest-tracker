@@ -6,6 +6,10 @@ Un planificateur de tâches présenté comme un journal de quêtes d'aventure : 
 
 Touche **M** (ou le bouton « Carte » à côté du titre) pour passer du journal à la carte. Ta journée y est un chemin de 6 h à 22 h : glisse une quête sur le chemin pour la placer, déplace un point pour changer l'heure, ajoute des créneaux libres (repas, rendez-vous, sport, pause). « ✦ Organiser ma journée » demande à Gemini une proposition que tu acceptes créneau par créneau. Les flèches ← → changent de jour.
 
+## Google Agenda (lecture seule)
+
+Réglages → « Google Agenda » : colle l'ID client OAuth de ton projet Google Cloud, puis « Se connecter à Google ». Les rendez-vous de ton agenda principal apparaissent sur la carte (points ronds roses). Le site ne peut que les lire. La connexion dure environ une heure ; ensuite un clic sur « Reconnecter » suffit.
+
 ## Étapes
 
 Chaque quête peut contenir une liste d'étapes (Modifier → « Étapes de la quête », ou « ✦ Proposer des étapes » avec Gemini). Quand la dernière étape est cochée, la quête s'accomplit toute seule. Si tu décoches une étape d'une quête accomplie, elle se rouvre.
